@@ -50,6 +50,11 @@
 ## Marketplace / Shop (all free)
 - [x] Timeline Themes — 5 themes (Midnight, Sepia, Neon, Ocean, Forest) changing hero gradient, timeline spine, and dot colors; free to unlock; active theme persisted to user profile
 
+## Testing
+- [x] Server unit tests — Vitest covering: `xpToLevel`/level thresholds, XP reward logic, quiz question randomisation, in-memory cache (get/set for timelines and quiz), rate-limit logic, all REST API routes (browse, auth/me, saved timelines CRUD, custom topics CRUD, marketplace, theme setter)
+- [x] Client unit tests — Vitest + Testing Library covering: type utilities, `TimelineForm` (render, submit, trim, usage bar states), `ProfileBadge` (level, avatar, click), `QuizModal` (loading, questions, answer feedback, error), `Discover` (all topics, search, category filter)
+- [x] Tests run as a mandatory CI step (`test` job) before `build`; deploy jobs require passing tests
+
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
 - [ ] Deploy to Azure Service Fabric
