@@ -3,6 +3,7 @@ import EventCard from './EventCard';
 import QuizModal from './QuizModal';
 import KeyboardHelp from './KeyboardHelp';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
 
@@ -110,13 +111,58 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           collectionName,
         }),
       });
-      if (res.ok) { setSaved(true); setShowSaveForm(false); }
-      else setSaveError('Failed to save');
+      if (res.ok) {
+        setSaved(true);
+        setShowSaveForm(false);
+        toast.xp('+5 XP', 'Timeline saved');
+      } else {
+        setSaveError('Failed to save');
+      }
     } catch { setSaveError('Failed to save'); }
     setSaving(false);
   };
 
   const handlePrint = () => { window.print(); };
+
+  const handleMarkdownExport = () => {
+    const lines: string[] = [
+      `# ${data.topic}`,
+      `**Period:** ${data.period}`,
+      '',
+      data.description,
+      '',
+      '---',
+      '',
+    ];
+    for (const event of data.events) {
+      lines.push(`## ${event.title} — ${event.date}`);
+      if (event.location) lines.push(`📍 *${event.location}*`);
+      lines.push('');
+      lines.push(event.summary);
+      lines.push('');
+      lines.push(event.details);
+      lines.push('');
+      lines.push(`**Significance:** ${event.significance}`);
+      if (event.figures?.length) lines.push(`**Key Figures:** ${event.figures.join(', ')}`);
+      if (event.tags?.length) lines.push(`**Tags:** ${event.tags.join(', ')}`);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    }
+    if (data.relatedTopics?.length) {
+      lines.push('## Related Topics');
+      data.relatedTopics.forEach(t => lines.push(`- ${t}`));
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.topic.toLowerCase().replace(/\s+/g, '-')}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Markdown downloaded');
+  };
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -127,6 +173,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const handleQuizComplete = (score: number, total: number, xpEarned: number) => {
     setQuizResult({ score, total, xpEarned });
     setShowQuiz(false);
+    toast.xp(`+${xpEarned} XP`, `Quiz: ${score}/${total} correct`);
+  };
+
+  const handleSaveWithToast = async () => {
+    await handleSave();
+    // handleSave sets saved=true on success; toast fires after
   };
 
   return (
@@ -196,7 +248,13 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             onClick={handlePrint}
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
           >
-            📄 Export PDF
+            📄 PDF
+          </button>
+          <button
+            onClick={handleMarkdownExport}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
+          >
+            ↓ Markdown
           </button>
           <button
             onClick={onReset}

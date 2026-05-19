@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TOPIC_TAXONOMY } from '../data/topics';
+import SurpriseButton from './SurpriseButton';
 
 interface Props {
   onSelect: (topic: string, start: string, end: string) => void;
@@ -48,9 +49,12 @@ export default function Discover({ onSelect }: Props) {
       <div className="mb-8">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Discover</p>
         <h1 className="font-cinzel font-bold text-white text-2xl tracking-wider">Explore History</h1>
-        <p className="text-slate-400 text-sm mt-2">
-          {totalTopics} curated timelines, ready instantly — no sign-in required.
-        </p>
+        <div className="flex items-center gap-4 mt-2">
+          <p className="text-slate-400 text-sm">
+            {totalTopics} curated timelines, ready instantly — no sign-in required.
+          </p>
+          <SurpriseButton onSelect={onSelect} variant="link" />
+        </div>
       </div>
 
       {/* Search + category filter */}

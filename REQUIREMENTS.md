@@ -73,6 +73,9 @@
 - [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
 
 ## User Experience Polish
+- [x] XP toast notifications — module-level toast emitter (no context/prop drilling); "+10 XP · Timeline generated", "+5 XP · Timeline saved", "+N XP · Quiz: X/5 correct" shown as bottom-right popups; level-up fires "🎉 Level N! · [Title]" toast; auto-dismisses after 3.5s
+- [x] "Surprise me!" button — home screen and Discover page; shuffles TOPIC_TAXONOMY, fetches up to 10 topics from browse cache, loads first cached hit instantly; falls back to first topic if none cached
+- [x] Markdown export — "↓ Markdown" button in timeline action bar; generates structured .md with title, period, description, each event as H2 with date/location/summary/details/significance/figures/tags, related topics list; downloads as `topic-name.md`
 - [x] In-timeline text search — 🔍 Search button in timeline action bar opens a live search input; filters events by keyword match across title, summary, significance, figures, and location; works alongside tag filter; "X of Y events matching" count shown; Escape clears
 - [x] Achievement badges — 8 badges shown in profile modal grid (First Steps, Scholar/Historian/Grand Historian/Epocha Master via level, Collector/Librarian/Curator via save count); unearned badges shown greyed/desaturated with progress bar; earned count displayed
 - [x] Social share buttons — Twitter/X and LinkedIn share buttons in timeline header; pre-composed text includes topic, period, and current URL; open in new tab

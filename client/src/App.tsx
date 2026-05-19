@@ -10,6 +10,9 @@ import SavedTimelines from './components/SavedTimelines';
 import Discover from './components/Discover';
 import Spotlight from './components/Spotlight';
 import TimelineSkeleton from './components/TimelineSkeleton';
+import Toaster from './components/Toaster';
+import SurpriseButton from './components/SurpriseButton';
+import { toast } from './utils/toast';
 import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
 import { useSession, loadSession } from './hooks/useSession';
@@ -22,6 +25,7 @@ export default function App() {
   const { user, loading: authLoading, signIn, signOut, refresh } = useAuth();
   const { history, push: pushHistory } = useHistory();
   const { save: saveSession, clear: clearSession } = useSession();
+  const [prevLevel, setPrevLevel] = useState(user?.level ?? 1);
   const [timeline, setTimeline] = useState<TimelineData | null>(null);
   const [sessionRestored, setSessionRestored] = useState(false);
   const [status, setStatus] = useState<AppStatus>({ loading: false });
@@ -38,6 +42,19 @@ export default function App() {
     const theme = user?.activeTheme ?? localStorage.getItem('epocha-theme') ?? 'midnight';
     applyTheme(theme);
   }, [user?.activeTheme]);
+
+  // Detect level-ups and fire toast
+  useEffect(() => {
+    if (!user) return;
+    if (user.level > prevLevel) {
+      const titles = ['', 'Novice', 'Apprentice', 'Scholar', 'Historian', 'Archivist',
+        'Chronicler', 'Sage', 'Lorekeeper', 'Antiquarian', 'Curator',
+        'Fellow', 'Luminary', 'Savant', 'Polymath', 'Oracle',
+        'Virtuoso', 'Mastermind', 'Visionary', 'Grand Historian', 'Epocha Master'];
+      toast.levelup(user.level, titles[user.level] ?? 'Epocha Master');
+    }
+    setPrevLevel(user.level);
+  }, [user?.level]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On mount: load from URL params, or restore last session if no params
   useEffect(() => {
@@ -143,6 +160,7 @@ export default function App() {
               pushTimelineUrl(topic, startYear, endYear);
               pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
               saveSession(topic, startYear, endYear, data.timeline);
+              toast.xp('+10 XP', 'Timeline generated');
               void refresh();
             } else if (data.type === 'error' && data.message) {
               throw new Error(data.message);
@@ -189,6 +207,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen hero-bg">
+      <Toaster />
 
       {/* Scroll progress bar */}
       {scrollProgress > 0 && (
@@ -337,6 +356,10 @@ export default function App() {
                 </div>
 
                 <Spotlight onSelect={(topic, s, e) => void handleBrowse(topic, s, e)} />
+
+                <div className="flex justify-center mb-4 fade-up" style={{ animationDelay: '0.2s' }}>
+                  <SurpriseButton onSelect={(topic, s, e) => void handleBrowse(topic, s, e)} />
+                </div>
 
                 <div className="fade-up w-full max-w-lg" style={{ animationDelay: '0.15s' }}>
                   <TimelineForm
