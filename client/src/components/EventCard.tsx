@@ -17,13 +17,37 @@ const TAG_STYLES = [
   'text-rose-300 border-rose-400/30 bg-rose-400/5',
 ];
 
+function formatEventText(event: TimelineEvent): string {
+  const lines = [
+    `${event.title} (${event.date})`,
+    event.location ? `📍 ${event.location}` : '',
+    '',
+    event.summary,
+    '',
+    event.details,
+    '',
+    `Historical Significance: ${event.significance}`,
+  ];
+  if (event.figures?.length) lines.push('', `Key Figures: ${event.figures.join(', ')}`);
+  if (event.tags?.length) lines.push('', `Tags: ${event.tags.join(', ')}`);
+  return lines.filter(l => l !== undefined).join('\n').trim();
+}
+
 export default function EventCard({ event, gradient, align }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const paragraphs = event.details
     .split(/\n\n+/)
     .map(p => p.trim())
     .filter(Boolean);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(formatEventText(event));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -86,7 +110,7 @@ export default function EventCard({ event, gradient, align }: Props) {
           </div>
 
           {/* Significance */}
-          <div className={`rounded-xl p-4 border border-amber-400/20 bg-amber-400/5 mb-4`}>
+          <div className="rounded-xl p-4 border border-amber-400/20 bg-amber-400/5 mb-4">
             <p className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2">
               Historical Significance
             </p>
@@ -97,7 +121,7 @@ export default function EventCard({ event, gradient, align }: Props) {
 
           {/* Key figures */}
           {event.figures && event.figures.length > 0 && (
-            <div>
+            <div className="mb-4">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Key Figures
               </p>
@@ -114,6 +138,34 @@ export default function EventCard({ event, gradient, align }: Props) {
               </div>
             </div>
           )}
+
+          {/* Copy button */}
+          <div className="flex justify-end pt-1">
+            <button
+              onClick={handleCopy}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all print:hidden ${
+                copied
+                  ? 'text-emerald-400 bg-emerald-400/10 border border-emerald-400/30'
+                  : 'text-slate-600 bg-white/4 border border-white/8 hover:text-slate-300 hover:border-white/15'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>

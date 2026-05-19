@@ -12,6 +12,8 @@ import Spotlight from './components/Spotlight';
 import TimelineSkeleton from './components/TimelineSkeleton';
 import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
+import { useSession, loadSession } from './hooks/useSession';
+import { useScrollProgress } from './hooks/useScrollProgress';
 import type { TimelineData, AppStatus, AppPage } from './types';
 
 const DEFAULT_PERIOD = { start: '1', end: '2000' };
@@ -19,7 +21,9 @@ const DEFAULT_PERIOD = { start: '1', end: '2000' };
 export default function App() {
   const { user, loading: authLoading, signIn, signOut, refresh } = useAuth();
   const { history, push: pushHistory } = useHistory();
+  const { save: saveSession, clear: clearSession } = useSession();
   const [timeline, setTimeline] = useState<TimelineData | null>(null);
+  const [sessionRestored, setSessionRestored] = useState(false);
   const [status, setStatus] = useState<AppStatus>({ loading: false });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTopic, setActiveTopic] = useState<string | undefined>();
@@ -27,6 +31,7 @@ export default function App() {
   const [pendingTopic, setPendingTopic] = useState<{ topic: string; start: string; end: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [streamingMeta, setStreamingMeta] = useState<{ topic: string; period: string; description: string } | null>(null);
+  const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Apply theme from user profile
   useEffect(() => {
@@ -34,7 +39,7 @@ export default function App() {
     applyTheme(theme);
   }, [user?.activeTheme]);
 
-  // On mount: load timeline from URL params if present
+  // On mount: load from URL params, or restore last session if no params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const topic = params.get('topic');
@@ -42,6 +47,16 @@ export default function App() {
     const endYear = params.get('end');
     if (topic && startYear && endYear) {
       void handleBrowse(topic, startYear, endYear);
+      return;
+    }
+    // No URL params — try to restore last session
+    const session = loadSession();
+    if (session) {
+      setTimeline(session.timeline);
+      setActiveTopic(session.topic);
+      pushTimelineUrl(session.topic, session.startYear, session.endYear);
+      setSessionRestored(true);
+      setTimeout(() => setSessionRestored(false), 4000);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -66,6 +81,7 @@ export default function App() {
         setStatus({ loading: false });
         pushTimelineUrl(topic, startYear, endYear);
         pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
+        saveSession(topic, startYear, endYear, data.timeline);
         return;
       }
       // Not cached — need auth to generate
@@ -126,6 +142,7 @@ export default function App() {
               setStatus({ loading: false });
               pushTimelineUrl(topic, startYear, endYear);
               pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
+              saveSession(topic, startYear, endYear, data.timeline);
               void refresh();
             } else if (data.type === 'error' && data.message) {
               throw new Error(data.message);
@@ -159,6 +176,7 @@ export default function App() {
     setStreamingMeta(null);
     setActiveTopic(undefined);
     setStatus({ loading: false });
+    clearSession();
     window.history.replaceState(null, '', '/');
   };
 
@@ -171,6 +189,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen hero-bg">
+
+      {/* Scroll progress bar */}
+      {scrollProgress > 0 && (
+        <div className="fixed top-0 inset-x-0 z-30 h-0.5 bg-transparent print:hidden">
+          <div
+            className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-400 transition-all duration-100"
+            style={{ width: `${scrollProgress * 100}%` }}
+          />
+        </div>
+      )}
 
       {/* Top nav */}
       <header className="fixed top-0 inset-x-0 z-20 border-b border-white/5 backdrop-blur-lg bg-black/20 h-[52px]">
@@ -393,6 +421,13 @@ export default function App() {
             {/* Timeline */}
             {timeline && !isLoading && (
               <div className="max-w-4xl mx-auto px-5 pb-24">
+                {sessionRestored && (
+                  <div className="mb-0 pt-4 fade-up flex justify-center">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-500 text-xs">
+                      <span>🕐</span> Restored from your last session
+                    </div>
+                  </div>
+                )}
                 <Timeline
                   data={timeline}
                   onReset={handleReset}

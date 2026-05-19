@@ -73,6 +73,9 @@
 - [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
 
 ## User Experience Polish
+- [x] Session restoration — last viewed timeline auto-restored from localStorage on app open (24-hour TTL); "Restored from your last session" banner fades in; cleared on reset
+- [x] Scroll progress bar — thin amber gradient bar at the top of the viewport tracks reading progress through the timeline; hidden on home/loading screens and in print
+- [x] Event copy button — "Copy" button in each expanded EventCard copies formatted text (title, date, location, summary, details, significance, figures, tags); shows "✓ Copied" confirmation
 - [x] Tag filter on timeline — clickable tag chips filter visible events; shows filtered count; multi-select with OR logic; clear button resets
 - [x] Daily usage indicator — progress bar under the generate form shows N/limit used; turns amber at 2 remaining, red when exhausted; resets note at midnight UTC
 - [x] Profile stats modal — clicking the level badge opens an overlay with XP progress, level title, daily usage bar, unlocked themes grid, and XP rewards guide
