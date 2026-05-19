@@ -60,10 +60,8 @@ jobs:
           cp server/package.json deploy/
           cp server/package-lock.json deploy/
           cp -r client/dist deploy/client/
-
-      - name: Install production dependencies (Linux)
-        working-directory: deploy
-        run: npm ci --omit=dev
+          # No node_modules — Azure Oryx installs them on Linux at deploy time
+          # (SCM_DO_BUILD_DURING_DEPLOYMENT=true + ORYX_DISABLE_TYPESCRIPT_BUILD=true)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -121,6 +119,7 @@ jobs:
 
       - name: Deploy to Azure Functions
         uses: azure/functions-action@v1
+        continue-on-error: true   # cold-start Kudu can return 503; non-blocking
         with:
           app-name: ${{ env.AZURE_FUNC_NAME }}
           package: functions/
