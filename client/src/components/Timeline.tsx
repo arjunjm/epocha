@@ -64,6 +64,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
+  const [figureFilter, setFigureFilter] = useState<string | null>(null);
 
   const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
 
@@ -93,15 +94,23 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const tagFiltered = activeTags.size === 0
     ? data.events
     : data.events.filter(e => e.tags?.some(t => activeTags.has(t)));
+  const figureFiltered = figureFilter
+    ? tagFiltered.filter(e => e.figures?.includes(figureFilter))
+    : tagFiltered;
   const visibleEvents = q === ''
-    ? tagFiltered
-    : tagFiltered.filter(e =>
+    ? figureFiltered
+    : figureFiltered.filter(e =>
         e.title.toLowerCase().includes(q) ||
         e.summary.toLowerCase().includes(q) ||
         e.significance.toLowerCase().includes(q) ||
         e.figures?.some(f => f.toLowerCase().includes(q)) ||
         e.location?.toLowerCase().includes(q)
       );
+
+  const handleFigureClick = (name: string) => {
+    setFigureFilter(prev => prev === name ? null : name);
+    setSearchQuery('');
+  };
 
   const topicParts = data.period.split(' to ');
   const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
@@ -413,6 +422,24 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           </div>
         )}
 
+        {/* Figure filter banner */}
+        {figureFilter && (
+          <div className="mt-4 fade-up flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/30">
+              <span className="text-xs text-slate-500">👤 Viewing history through</span>
+              <span className="text-xs font-semibold text-violet-300">{figureFilter}</span>
+              <span className="text-slate-700 text-xs">· {visibleEvents.length} event{visibleEvents.length !== 1 ? 's' : ''}</span>
+              <button
+                onClick={() => setFigureFilter(null)}
+                className="text-slate-600 hover:text-slate-300 transition-colors text-xs ml-1"
+                title="Clear figure filter"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Quiz result banner */}
         {quizResult && (
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 fade-up">
@@ -447,7 +474,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                       <div className="lg:text-right lg:pr-10">
                         <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
-                          onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }} />
+                          onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -461,7 +489,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                       <div className="lg:pl-10">
                         <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
-                          onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }} />
+                          onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
                       </div>
                     </>
                   )}
@@ -477,7 +506,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                     <div className="pl-5 border-l border-white/10">
                       <EventCard event={event} gradient={gradient} glow={glow} align="left"
                         bookmarked={isBookmarked(data.topic, event)}
-                        onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }} />
+                        onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
+                        onFigureClick={handleFigureClick} activeFigure={figureFilter} />
                     </div>
                   </div>
                 </div>

@@ -104,6 +104,7 @@
 - [x] Compact list view — toggle between full alternating view and dense scannable rows; each row expands inline to show summary/significance/figures
 - [x] Flashcard Study Mode — "🃏 Flashcards" in action bar; full-screen study mode shows event title, hides date/summary until "Reveal"; score yourself ✓/✗ per card; colour-coded dot progress; final score screen with retry-missed option; keyboard shortcuts (Space=reveal, C/→=knew it, X/←=missed it, Esc=exit)
 - [x] Timeline Insights Panel — "📊 Insights" button opens a modal with computed analytics: events-by-century bar chart, top mentioned figures, top themes, key locations (all with proportional bars); summary stats row (total events, reading time, word count, location count)
+- [x] Key Figure Explorer — click any figure name in "Key Figures" to filter the entire timeline to events featuring that person; "Viewing history through [Name]" banner shows filtered count; active figure highlighted violet; click again or × to clear
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

@@ -9,6 +9,8 @@ interface Props {
   defaultExpanded?: boolean;
   bookmarked?: boolean;
   onBookmark?: (e: React.MouseEvent) => void;
+  onFigureClick?: (name: string) => void;
+  activeFigure?: string | null;
 }
 
 const TAG_STYLES = [
@@ -38,7 +40,7 @@ function formatEventText(event: TimelineEvent): string {
 
 const TAGS_PREF_KEY = 'epocha-tags-expanded';
 
-export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark }: Props) {
+export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(() => {
@@ -169,17 +171,32 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
           {event.figures && event.figures.length > 0 && (
             <div className="mb-4">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                Key Figures
+                Key Figures {onFigureClick && <span className="font-normal text-slate-700 normal-case">· click to explore</span>}
               </p>
               <div className="flex flex-wrap gap-2">
                 {event.figures.map(figure => (
-                  <span
-                    key={figure}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-slate-300 bg-white/5 border border-white/10"
-                  >
-                    <span className="text-slate-500">👤</span>
-                    {figure}
-                  </span>
+                  onFigureClick ? (
+                    <button
+                      key={figure}
+                      onClick={e => { e.stopPropagation(); onFigureClick(figure); }}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                        activeFigure === figure
+                          ? 'bg-violet-500/20 border-violet-400/50 text-violet-300'
+                          : 'bg-white/5 border-white/10 text-slate-300 hover:bg-violet-500/10 hover:border-violet-400/30 hover:text-violet-300'
+                      }`}
+                    >
+                      <span className="text-slate-500">👤</span>
+                      {figure}
+                    </button>
+                  ) : (
+                    <span
+                      key={figure}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-slate-300 bg-white/5 border border-white/10"
+                    >
+                      <span className="text-slate-500">👤</span>
+                      {figure}
+                    </span>
+                  )
                 ))}
               </div>
             </div>
