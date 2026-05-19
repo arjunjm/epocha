@@ -54,6 +54,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showTagFilter, setShowTagFilter] = useState(false);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -320,39 +321,60 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           </p>
         )}
 
-        {/* Tag filter */}
+        {/* Tag filter — collapsed by default */}
         {allTags.length > 0 && (
-          <div className="mt-5 flex flex-wrap justify-center gap-1.5 print:hidden">
-            {allTags.map(tag => {
-              const active = activeTags.has(tag);
-              return (
+          <div className="mt-4 print:hidden">
+            {!showTagFilter ? (
+              <div className="flex justify-center">
                 <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${
-                    active
-                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                      : 'bg-white/3 border-white/10 text-slate-600 hover:border-white/20 hover:text-slate-400'
-                  }`}
+                  onClick={() => setShowTagFilter(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium text-slate-600 border border-white/8 hover:border-white/15 hover:text-slate-400 transition-colors"
                 >
-                  {tag}
+                  <span className="text-[9px]">🏷</span>
+                  Filter by {allTags.length} theme{allTags.length !== 1 ? 's' : ''}
+                  {activeTags.size > 0 && <span className="text-amber-400 font-bold"> · {activeTags.size} active</span>}
                 </button>
-              );
-            })}
+              </div>
+            ) : (
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {allTags.map(tag => {
+                  const active = activeTags.has(tag);
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${
+                        active
+                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                          : 'bg-white/3 border-white/10 text-slate-600 hover:border-white/20 hover:text-slate-400'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+                {activeTags.size > 0 && (
+                  <button
+                    onClick={() => setActiveTags(new Set())}
+                    className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/10 text-slate-600 hover:text-slate-300 transition-colors"
+                  >
+                    × clear
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowTagFilter(false); setActiveTags(new Set()); }}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/10 text-slate-600 hover:text-slate-300 transition-colors"
+                >
+                  hide
+                </button>
+              </div>
+            )}
             {activeTags.size > 0 && (
-              <button
-                onClick={() => setActiveTags(new Set())}
-                className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/10 text-slate-600 hover:text-slate-300 transition-colors"
-              >
-                × clear
-              </button>
+              <p className="mt-2 text-xs text-slate-600 text-center">
+                {visibleEvents.length} of {data.events.length} events
+              </p>
             )}
           </div>
-        )}
-        {activeTags.size > 0 && (
-          <p className="mt-2 text-xs text-slate-600 text-center">
-            {visibleEvents.length} of {data.events.length} events
-          </p>
         )}
 
         {/* Quiz result banner */}
@@ -387,7 +409,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                   {isLeft ? (
                     <>
                       <div className="lg:text-right lg:pr-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={index === 0} />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -399,7 +421,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <DatePill date={event.date} gradient={gradient} />
                       </div>
                       <div className="lg:pl-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={index === 0} />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false} />
                       </div>
                     </>
                   )}
