@@ -101,6 +101,7 @@
 - [x] Recently viewed history — last 8 timelines stored in localStorage; shown at the top of the sidebar as "Recent"; deduplicates by topic key
 - [x] Keyboard shortcuts — Q (quiz), B (bookmark), C (compact view), H (home), ? (help modal), Escape (close modals); inactive when typing in inputs; help overlay shows all bindings
 - [x] Compact list view — toggle between full alternating view and dense scannable rows; each row expands inline to show summary/significance/figures
+- [x] Timeline Insights Panel — "📊 Insights" button opens a modal with computed analytics: events-by-century bar chart, top mentioned figures, top themes, key locations (all with proportional bars); summary stats row (total events, reading time, word count, location count)
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

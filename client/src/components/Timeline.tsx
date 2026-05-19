@@ -2,6 +2,7 @@ import { useState } from 'react';
 import EventCard from './EventCard';
 import QuizModal from './QuizModal';
 import KeyboardHelp from './KeyboardHelp';
+import InsightsPanel from './InsightsPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
@@ -55,6 +56,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -202,6 +204,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
             {total} events
           </span>
+          <button
+            onClick={() => setShowInsights(true)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-teal-300 border border-teal-400/30 bg-teal-400/5 hover:bg-teal-400/10 transition-colors print:hidden"
+          >
+            📊 Insights
+          </button>
           <button
             onClick={() => setShowQuiz(true)}
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
@@ -479,6 +487,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
       </div>
 
       {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
+
+      {showInsights && <InsightsPanel data={data} onClose={() => setShowInsights(false)} />}
 
       {showQuiz && (
         <QuizModal
