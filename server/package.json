@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc"
+    "build": "echo 'JS already compiled by CI'",
+    "compile": "tsc"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

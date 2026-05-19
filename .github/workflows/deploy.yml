@@ -34,7 +34,7 @@ jobs:
 
       - name: Build server (TypeScript → JS)
         working-directory: server
-        run: npx tsc
+        run: npm run compile
 
       # ── Client ─────────────────────────────────────────────────────────
       - name: Install client dependencies
