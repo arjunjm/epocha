@@ -75,6 +75,43 @@ async function generateTimeline(client: Anthropic, job: TopicJob): Promise<strin
   }
 }
 
+async function generateAndCacheQuiz(client: Anthropic, redis: Redis, timelineJson: string, job: TopicJob): Promise<void> {
+  const quizKey = `quiz:timeline:${job.topic.toLowerCase().trim().replace(/\s+/g, '-')}:${job.startYear}:${job.endYear}`;
+
+  const existing = await redis.ttl(quizKey);
+  if (existing > 86400) return; // already fresh
+
+  const timeline = JSON.parse(timelineJson);
+  const summary = {
+    topic: timeline.topic,
+    period: timeline.period,
+    events: (timeline.events ?? []).map((e: { date: string; title: string; summary: string; figures?: string[]; location?: string }) => ({
+      date: e.date, title: e.title, summary: e.summary, figures: e.figures, location: e.location,
+    })),
+  };
+
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 4096,
+    system: `You are creating a multiple-choice quiz about a historical timeline.
+Generate exactly 12 multiple-choice questions. Return ONLY a valid JSON array:
+[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]`,
+    messages: [{ role: 'user', content: `Generate 12 quiz questions for:\n${JSON.stringify(summary)}` }],
+  });
+
+  const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
+  const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  const match = stripped.match(/\[[\s\S]*\]/);
+  if (!match) return;
+
+  try {
+    const questions = JSON.parse(match[0]);
+    if (Array.isArray(questions) && questions.length > 0) {
+      await redis.setex(quizKey, 60 * 60 * 24 * 7, JSON.stringify(questions));
+    }
+  } catch { /* ignore */ }
+}
+
 // Timer trigger — runs daily at 2 AM UTC
 app.timer('pregenerateTimelines', {
   schedule: '0 0 2 * * *',
@@ -123,13 +160,16 @@ app.timer('pregenerateTimelines', {
           await redis.setex(key, TTL_SECONDS, result);
           generated++;
           context.log(`Cached: ${job.topic}`);
+          // Generate quiz questions for this timeline too
+          try { await generateAndCacheQuiz(anthropic, redis, result, job); }
+          catch (qErr) { context.warn(`Quiz gen failed for ${job.topic}: ${qErr}`); }
         } else {
           failed++;
           context.warn(`Failed to generate: ${job.topic}`);
         }
 
         // Brief pause between requests to avoid rate limiting
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
       } catch (err) {
         failed++;
         context.error(`Error generating ${job.topic}: ${err}`);

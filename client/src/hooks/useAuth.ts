@@ -8,6 +8,10 @@ export interface AuthUser {
   dailyCount: number;
   dailyLimit: number;
   remaining: number;
+  xp: number;
+  level: number;
+  activeTheme: string;
+  unlockedThemes: string[];
 }
 
 export function useAuth() {
@@ -17,11 +21,8 @@ export function useAuth() {
   const fetchMe = async () => {
     try {
       const res = await fetch('/api/auth/me', { credentials: 'include' });
-      if (res.ok) {
-        setUser(await res.json() as AuthUser);
-      } else {
-        setUser(null);
-      }
+      if (res.ok) setUser(await res.json() as AuthUser);
+      else setUser(null);
     } catch {
       setUser(null);
     } finally {
@@ -31,9 +32,7 @@ export function useAuth() {
 
   useEffect(() => { void fetchMe(); }, []);
 
-  const signIn = () => {
-    window.location.href = '/api/auth/google';
-  };
+  const signIn = () => { window.location.href = '/api/auth/google'; };
 
   const signOut = async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });

@@ -16,7 +16,7 @@ export function configurePassport() {
     {
       clientID: getSecret('google-client-id'),
       clientSecret: getSecret('google-client-secret'),
-      callbackURL: process.env.GOOGLE_CALLBACK_URL ?? 'http://localhost:3001/api/auth/google/callback',
+      callbackURL: getSecret('google-callback-url') || 'http://localhost:3001/api/auth/google/callback',
       scope: ['profile', 'email'],
     },
   async (_accessToken, _refreshToken, profile, done) => {

@@ -1,82 +1,166 @@
+import { useState } from 'react';
 import EventCard from './EventCard';
+import QuizModal from './QuizModal';
 import type { TimelineData } from '../types';
+import type { AuthUser } from '../hooks/useAuth';
 
 interface Props {
   data: TimelineData;
   onReset: () => void;
+  onRelatedSelect?: (topic: string) => void;
+  user?: AuthUser | null;
+  onSignIn?: () => void;
 }
 
-// Era-based gradient colors for dots and accents
 const ERA_GRADIENTS = [
-  'from-violet-500 to-purple-600',
-  'from-indigo-500 to-blue-600',
-  'from-blue-500 to-cyan-500',
-  'from-cyan-500 to-teal-500',
-  'from-teal-500 to-emerald-500',
-  'from-emerald-500 to-green-500',
-  'from-green-500 to-lime-500',
-  'from-yellow-500 to-amber-500',
-  'from-amber-500 to-orange-500',
-  'from-orange-500 to-red-500',
-  'from-red-500 to-rose-500',
-  'from-rose-500 to-pink-500',
+  'from-violet-500 to-purple-600', 'from-indigo-500 to-blue-600',
+  'from-blue-500 to-cyan-500', 'from-cyan-500 to-teal-500',
+  'from-teal-500 to-emerald-500', 'from-emerald-500 to-green-500',
+  'from-green-500 to-lime-500', 'from-yellow-500 to-amber-500',
+  'from-amber-500 to-orange-500', 'from-orange-500 to-red-500',
+  'from-red-500 to-rose-500', 'from-rose-500 to-pink-500',
 ];
 
 const ERA_GLOWS = [
-  'shadow-violet-500/40',
-  'shadow-indigo-500/40',
-  'shadow-blue-500/40',
-  'shadow-cyan-500/40',
-  'shadow-teal-500/40',
-  'shadow-emerald-500/40',
-  'shadow-green-500/40',
-  'shadow-yellow-500/40',
-  'shadow-amber-500/40',
-  'shadow-orange-500/40',
-  'shadow-red-500/40',
-  'shadow-rose-500/40',
+  'shadow-violet-500/40', 'shadow-indigo-500/40', 'shadow-blue-500/40',
+  'shadow-cyan-500/40', 'shadow-teal-500/40', 'shadow-emerald-500/40',
+  'shadow-green-500/40', 'shadow-yellow-500/40', 'shadow-amber-500/40',
+  'shadow-orange-500/40', 'shadow-red-500/40', 'shadow-rose-500/40',
 ];
 
 function getGradient(index: number, total: number) {
   const i = Math.floor((index / Math.max(total - 1, 1)) * (ERA_GRADIENTS.length - 1));
   return {
-    gradient: ERA_GRADIENTS[Math.min(i, ERA_GRADIENTS.length - 1)],
-    glow: ERA_GLOWS[Math.min(i, ERA_GLOWS.length - 1)],
+    gradient: ERA_GRADIENTS[Math.min(i, ERA_GRADIENTS.length - 1)]!,
+    glow: ERA_GLOWS[Math.min(i, ERA_GLOWS.length - 1)]!,
   };
 }
 
-export default function Timeline({ data, onReset }: Props) {
+export default function Timeline({ data, onReset, onRelatedSelect, user, onSignIn }: Props) {
   const total = data.events.length;
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [quizResult, setQuizResult] = useState<{ score: number; total: number; xpEarned: number } | null>(null);
+  const [collectionName, setCollectionName] = useState('General');
+  const [showSaveForm, setShowSaveForm] = useState(false);
+
+  // Extract topic/period info for quiz and save
+  const topicParts = data.period.split(' to ');
+  const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
+  const endYear = topicParts[1]?.replace(/\D/g, '') ?? '9999';
+
+  const handleSave = async () => {
+    if (!user) { onSignIn?.(); return; }
+    setSaving(true);
+    setSaveError('');
+    try {
+      const res = await fetch('/api/saved', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: data.topic,
+          startYear,
+          endYear,
+          title: data.topic,
+          description: data.description.slice(0, 200),
+          collectionName,
+        }),
+      });
+      if (res.ok) { setSaved(true); setShowSaveForm(false); }
+      else setSaveError('Failed to save');
+    } catch { setSaveError('Failed to save'); }
+    setSaving(false);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleQuizComplete = (score: number, total: number, xpEarned: number) => {
+    setQuizResult({ score, total, xpEarned });
+    setShowQuiz(false);
+  };
 
   return (
-    <div>
+    <div className="timeline-print-container">
       {/* Header */}
       <div className="pt-10 pb-16 text-center fade-up">
-        <p className="text-amber-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3">
-          {data.period}
-        </p>
-        <h2 className="font-serif text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">
-          {data.topic}
-        </h2>
-        <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed mb-6">
-          {data.description}
-        </p>
-        <div className="inline-flex items-center gap-4">
+        <p className="text-amber-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3">{data.period}</p>
+        <h2 className="font-serif text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">{data.topic}</h2>
+        <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed mb-6">{data.description}</p>
+
+        {/* Action bar */}
+        <div className="inline-flex flex-wrap items-center justify-center gap-2">
           <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
             {total} events
           </span>
           <button
+            onClick={() => setShowQuiz(true)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
+          >
+            🧠 Take Quiz
+          </button>
+          {!saved ? (
+            <button
+              onClick={() => setShowSaveForm(s => !s)}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-300 border border-white/15 hover:border-white/25 hover:text-white transition-colors"
+            >
+              {saving ? 'Saving…' : '🔖 Save'}
+            </button>
+          ) : (
+            <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-400 border border-emerald-400/30 bg-emerald-400/5">
+              ✓ Saved
+            </span>
+          )}
+          <button
+            onClick={handlePrint}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
+          >
+            📄 Export PDF
+          </button>
+          <button
             onClick={onReset}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors"
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
           >
             ← New search
           </button>
         </div>
+
+        {/* Save form */}
+        {showSaveForm && !saved && (
+          <div className="mt-4 inline-flex items-center gap-2 fade-up">
+            <input
+              type="text"
+              value={collectionName}
+              onChange={e => setCollectionName(e.target.value)}
+              placeholder="Collection name"
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-slate-300 text-xs focus:outline-none focus:border-amber-500/50 w-36"
+            />
+            <button
+              onClick={() => void handleSave()}
+              disabled={saving}
+              className="px-4 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              {saving ? '…' : 'Save'}
+            </button>
+            <button onClick={() => setShowSaveForm(false)} className="text-slate-600 hover:text-slate-400 text-xs">Cancel</button>
+          </div>
+        )}
+        {saveError && <p className="mt-2 text-red-400 text-xs">{saveError}</p>}
+
+        {/* Quiz result banner */}
+        {quizResult && (
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 fade-up">
+            <span className="text-violet-300 text-xs">Quiz: {quizResult.score}/{quizResult.total} correct · +{quizResult.xpEarned} XP</span>
+          </div>
+        )}
       </div>
 
-      {/* Timeline */}
+      {/* Timeline events */}
       <div className="relative">
-        {/* Spine line — desktop */}
         <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
 
         <div className="space-y-6 lg:space-y-0">
@@ -90,7 +174,6 @@ export default function Timeline({ data, onReset }: Props) {
                 className="fade-up lg:grid lg:grid-cols-2 lg:gap-8 lg:mb-6"
                 style={{ animationDelay: `${index * 80}ms` }}
               >
-                {/* Desktop: alternating layout */}
                 {isLeft ? (
                   <>
                     <div className="lg:text-right lg:pr-10">
@@ -110,14 +193,10 @@ export default function Timeline({ data, onReset }: Props) {
                     </div>
                   </>
                 )}
-
-                {/* Center dot — desktop */}
                 <div
                   className={`hidden lg:block absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-gradient-to-br ${gradient} shadow-lg ${glow} mt-6 ring-2 ring-[#0a0e1a]`}
-                  style={{ top: `${index === 0 ? 24 : 0}px`, position: 'absolute', marginTop: `${index * 0}px` }}
+                  style={{ top: `${index === 0 ? 24 : 0}px`, position: 'absolute' }}
                 />
-
-                {/* Mobile layout */}
                 <div className="lg:hidden">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${gradient} flex-shrink-0`} />
@@ -133,17 +212,49 @@ export default function Timeline({ data, onReset }: Props) {
         </div>
       </div>
 
+      {/* Related Topics */}
+      {data.relatedTopics && data.relatedTopics.length > 0 && onRelatedSelect && (
+        <div className="mt-20 pb-8 fade-up print:hidden">
+          <div className="text-center mb-5">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Keep Exploring</p>
+            <h3 className="text-white font-serif text-lg">Related Topics</h3>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            {data.relatedTopics.map(topic => (
+              <button
+                key={topic}
+                onClick={() => onRelatedSelect(topic)}
+                className="px-4 py-2 rounded-full text-sm text-slate-300 border border-white/10 bg-white/3 hover:bg-white/8 hover:text-white hover:border-white/20 transition-all"
+              >
+                {topic} →
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
-      <div className="mt-20 text-center fade-up">
+      <div className="mt-10 text-center fade-up">
         <div className="inline-block w-px h-12 bg-gradient-to-b from-white/20 to-transparent mb-6" />
         <p className="text-slate-600 text-xs uppercase tracking-widest">End of timeline</p>
         <button
           onClick={onReset}
-          className="mt-8 px-8 py-3 rounded-xl text-sm font-semibold text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 transition-all shadow-lg shadow-amber-500/20"
+          className="mt-8 px-8 py-3 rounded-xl text-sm font-semibold text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 transition-all shadow-lg shadow-amber-500/20 print:hidden"
         >
           Explore another topic
         </button>
       </div>
+
+      {/* Quiz modal */}
+      {showQuiz && (
+        <QuizModal
+          topic={data.topic}
+          startYear={startYear}
+          endYear={endYear}
+          onClose={() => setShowQuiz(false)}
+          onComplete={handleQuizComplete}
+        />
+      )}
     </div>
   );
 }

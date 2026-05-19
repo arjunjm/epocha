@@ -9,7 +9,7 @@
  */
 import Redis from 'ioredis';
 import { getSecret } from './secrets.js';
-import type { TimelineData } from './types.js';
+import type { TimelineData, QuizQuestion } from './types.js';
 
 const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
@@ -79,5 +79,29 @@ export async function setCached(
     console.log(`[cache] Stored timeline for "${topic}"`);
   } catch (err) {
     console.warn('[cache] Failed to cache timeline:', err);
+  }
+}
+
+export async function getCachedQuiz(
+  topic: string, startYear: string, endYear: string
+): Promise<QuizQuestion[] | null> {
+  const key = `quiz:${cacheKey(topic, startYear, endYear)}`;
+  try {
+    const raw = redis ? await redis.get(key) : memoryCache.get(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as QuizQuestion[];
+  } catch { return null; }
+}
+
+export async function setCachedQuiz(
+  topic: string, startYear: string, endYear: string, questions: QuizQuestion[]
+): Promise<void> {
+  const key = `quiz:${cacheKey(topic, startYear, endYear)}`;
+  const value = JSON.stringify(questions);
+  try {
+    if (redis) await redis.setex(key, TTL_SECONDS, value);
+    else memoryCache.set(key, value);
+  } catch (err) {
+    console.warn('[cache] Failed to cache quiz:', err);
   }
 }
