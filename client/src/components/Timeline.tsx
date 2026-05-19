@@ -47,6 +47,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+  const [compact, setCompact] = useState(false);
 
   // Collect all unique tags across events
   const allTags = Array.from(
@@ -139,6 +140,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             </span>
           )}
           <button
+            onClick={() => setCompact(c => !c)}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${compact ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
+          >
+            {compact ? '⊞ Full view' : '≡ Compact'}
+          </button>
+          <button
             onClick={() => void handleCopyLink()}
             className="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border border-white/10 hover:border-white/20 hover:text-white text-slate-400"
           >
@@ -224,57 +231,70 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
       </div>
 
       {/* Timeline events */}
-      <div className="relative">
-        <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
-
-        <div className="space-y-6 lg:space-y-0">
+      {compact ? (
+        /* ── Compact list view ──────────────────────────────────────────── */
+        <div className="space-y-1 py-4">
           {visibleEvents.map((event, index) => {
-            const { gradient, glow } = getGradient(index, visibleEvents.length);
-            const isLeft = index % 2 === 0;
-
+            const { gradient } = getGradient(index, visibleEvents.length);
             return (
-              <div
-                key={`${event.date}-${index}`}
-                className="fade-up lg:grid lg:grid-cols-2 lg:gap-8 lg:mb-6"
-                style={{ animationDelay: `${index * 80}ms` }}
-              >
-                {isLeft ? (
-                  <>
-                    <div className="lg:text-right lg:pr-10">
-                      <EventCard event={event} gradient={gradient} glow={glow} align="right" />
-                    </div>
-                    <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
-                      <DatePill date={event.date} gradient={gradient} />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="hidden lg:flex items-start justify-end pr-10 pt-5">
-                      <DatePill date={event.date} gradient={gradient} />
-                    </div>
-                    <div className="lg:pl-10">
-                      <EventCard event={event} gradient={gradient} glow={glow} align="left" />
-                    </div>
-                  </>
-                )}
-                <div
-                  className={`hidden lg:block absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-gradient-to-br ${gradient} shadow-lg ${glow} mt-6 ring-2 ring-[#0a0e1a]`}
-                  style={{ top: `${index === 0 ? 24 : 0}px`, position: 'absolute' }}
-                />
-                <div className="lg:hidden">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${gradient} flex-shrink-0`} />
-                    <DatePill date={event.date} gradient={gradient} />
-                  </div>
-                  <div className="pl-5 border-l border-white/10">
-                    <EventCard event={event} gradient={gradient} glow={glow} align="left" />
-                  </div>
-                </div>
-              </div>
+              <CompactRow key={`${event.date}-${index}`} event={event} gradient={gradient} index={index} />
             );
           })}
         </div>
-      </div>
+      ) : (
+        /* ── Full alternating view ──────────────────────────────────────── */
+        <div className="relative">
+          <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
+
+          <div className="space-y-6 lg:space-y-0">
+            {visibleEvents.map((event, index) => {
+              const { gradient, glow } = getGradient(index, visibleEvents.length);
+              const isLeft = index % 2 === 0;
+
+              return (
+                <div
+                  key={`${event.date}-${index}`}
+                  className="fade-up lg:grid lg:grid-cols-2 lg:gap-8 lg:mb-6"
+                  style={{ animationDelay: `${index * 80}ms` }}
+                >
+                  {isLeft ? (
+                    <>
+                      <div className="lg:text-right lg:pr-10">
+                        <EventCard event={event} gradient={gradient} glow={glow} align="right" />
+                      </div>
+                      <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
+                        <DatePill date={event.date} gradient={gradient} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="hidden lg:flex items-start justify-end pr-10 pt-5">
+                        <DatePill date={event.date} gradient={gradient} />
+                      </div>
+                      <div className="lg:pl-10">
+                        <EventCard event={event} gradient={gradient} glow={glow} align="left" />
+                      </div>
+                    </>
+                  )}
+                  <div
+                    className={`hidden lg:block absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-gradient-to-br ${gradient} shadow-lg ${glow} mt-6 ring-2 ring-[#0a0e1a]`}
+                    style={{ top: `${index === 0 ? 24 : 0}px`, position: 'absolute' }}
+                  />
+                  <div className="lg:hidden">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${gradient} flex-shrink-0`} />
+                      <DatePill date={event.date} gradient={gradient} />
+                    </div>
+                    <div className="pl-5 border-l border-white/10">
+                      <EventCard event={event} gradient={gradient} glow={glow} align="left" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Related Topics */}
       {data.relatedTopics && data.relatedTopics.length > 0 && onRelatedSelect && (
@@ -328,5 +348,51 @@ function DatePill({ date, gradient }: { date: string; gradient: string }) {
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${gradient} shadow-md whitespace-nowrap`}>
       {date}
     </span>
+  );
+}
+
+function CompactRow({ event, gradient, index }: { event: import('../types').TimelineEvent; gradient: string; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="fade-up" style={{ animationDelay: `${index * 30}ms` }}>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-white/4 transition-colors group"
+      >
+        <div className={`mt-0.5 flex-shrink-0 w-2 h-2 rounded-full bg-gradient-to-br ${gradient} ring-1 ring-white/10`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className={`text-[10px] font-bold bg-gradient-to-r ${gradient} bg-clip-text text-transparent whitespace-nowrap`}>
+              {event.date}
+            </span>
+            <span className="text-slate-200 text-sm font-medium leading-snug group-hover:text-white transition-colors">
+              {event.title}
+            </span>
+            {event.location && (
+              <span className="text-slate-700 text-[10px] hidden sm:inline">· {event.location}</span>
+            )}
+          </div>
+          {event.tags && event.tags.length > 0 && (
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {event.tags.slice(0, 3).map(tag => (
+                <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-slate-600">{tag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <span className="text-slate-700 text-xs flex-shrink-0 group-hover:text-slate-500 transition-colors mt-0.5">
+          {expanded ? '▲' : '▼'}
+        </span>
+      </button>
+      {expanded && (
+        <div className="mx-3 mb-2 p-3 rounded-xl bg-white/3 border border-white/5 text-slate-400 text-xs leading-relaxed card-details">
+          <p className="text-white/80 font-medium mb-1">{event.summary}</p>
+          <p className="text-slate-500 line-clamp-3">{event.significance}</p>
+          {event.figures && event.figures.length > 0 && (
+            <p className="mt-2 text-slate-700">Figures: {event.figures.join(', ')}</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

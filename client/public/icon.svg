@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0a0e1a"/>
+  <!-- Timeline spine -->
+  <line x1="256" y1="80" x2="256" y2="432" stroke="url(#spine)" stroke-width="4" stroke-linecap="round"/>
+  <!-- Events (dots + horizontal lines) -->
+  <circle cx="256" cy="128" r="14" fill="#f59e0b"/>
+  <line x1="160" y1="128" x2="242" y2="128" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="256" cy="208" r="14" fill="#8b5cf6"/>
+  <line x1="270" y1="208" x2="352" y2="208" stroke="#8b5cf6" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="256" cy="288" r="14" fill="#06b6d4"/>
+  <line x1="160" y1="288" x2="242" y2="288" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="256" cy="368" r="14" fill="#10b981"/>
+  <line x1="270" y1="368" x2="352" y2="368" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="spine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="33%" stop-color="#8b5cf6"/>
+      <stop offset="66%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -75,6 +75,9 @@
 ## Discovery & Sharing
 - [x] Shareable timeline URLs — topic/start/end encoded in query params; URL updates on load; auto-loads on page open; "Share" button copies link to clipboard
 - [x] Discover page — visual grid of all built-in topics grouped by category with search + filter; publicly accessible (no login required)
+- [x] Historical Spotlight — home screen shows a random event from a pre-cached timeline; loads instantly with zero API calls; clicking navigates to the full timeline
+- [x] Compact list view — toggle in timeline header switches between full alternating view and a dense scannable list; individual events expand inline
+- [x] PWA / installable — manifest.json + service worker; app is installable on mobile/desktop; static assets cached; navigation offline-resilient
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
