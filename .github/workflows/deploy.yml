@@ -117,7 +117,7 @@ jobs:
         working-directory: functions
         run: npx tsc
 
-      - name: Zip and deploy to Azure Functions
+      - name: Deploy to Azure Functions (run-from-package)
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -130,10 +130,44 @@ jobs:
             --tenant "$AZURE_TENANT_ID" \
             --output none
           az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+
+          # Build deployment zip (compiled JS + node_modules + host.json + package.json)
           cd functions
-          zip -r ../functions.zip . -x "*.ts" -x "node_modules/.cache/*"
+          zip -r ../functions.zip dist host.json package.json package-lock.json node_modules \
+            -x "node_modules/.cache/*"
           cd ..
-          az functionapp deployment source config-zip \
+
+          # Upload to blob storage and update WEBSITE_RUN_FROM_PACKAGE
+          STORAGE_ACCOUNT="sttimelineappdev"
+          CONTAINER="function-releases"
+          BLOB_NAME="functions-$(date +%Y%m%d%H%M%S)-${{ github.sha }}.zip"
+          EXPIRY=$(date -u -d "+10 years" '+%Y-%m-%dT%H:%MZ')
+
+          az storage blob upload \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.AZURE_STORAGE_KEY }}" \
+            --container-name "$CONTAINER" \
+            --name "$BLOB_NAME" \
+            --file functions.zip \
+            --overwrite
+
+          SAS=$(az storage blob generate-sas \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.AZURE_STORAGE_KEY }}" \
+            --container-name "$CONTAINER" \
+            --name "$BLOB_NAME" \
+            --permissions r \
+            --expiry "$EXPIRY" \
+            --output tsv)
+
+          PACKAGE_URL="https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}/${BLOB_NAME}?${SAS}"
+
+          az functionapp config appsettings set \
             --resource-group rg-epocha-dev \
             --name ${{ env.AZURE_FUNC_NAME }} \
-            --src functions.zip
+            --settings "WEBSITE_RUN_FROM_PACKAGE=${PACKAGE_URL}" \
+            --output none
+
+          az functionapp restart \
+            --resource-group rg-epocha-dev \
+            --name ${{ env.AZURE_FUNC_NAME }}
