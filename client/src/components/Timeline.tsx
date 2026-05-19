@@ -8,7 +8,6 @@ import FlashcardMode from './FlashcardMode';
 import InsightsPanel from './InsightsPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { hasNote } from '../hooks/useNote';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
