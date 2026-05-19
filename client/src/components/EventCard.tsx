@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { TimelineEvent } from '../types';
+import { useNote, hasNote } from '../hooks/useNote';
 
 interface Props {
   event: TimelineEvent;
@@ -11,6 +12,7 @@ interface Props {
   onBookmark?: (e: React.MouseEvent) => void;
   onFigureClick?: (name: string) => void;
   activeFigure?: string | null;
+  noteId?: string;
 }
 
 const TAG_STYLES = [
@@ -40,12 +42,15 @@ function formatEventText(event: TimelineEvent): string {
 
 const TAGS_PREF_KEY = 'epocha-tags-expanded';
 
-export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure }: Props) {
+export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure, noteId }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(() => {
     try { return localStorage.getItem(TAGS_PREF_KEY) === 'true'; } catch { return false; }
   });
+
+  const { note, saveNote } = useNote(noteId ?? '');
+  const noteExists = noteId ? hasNote(noteId) || note.trim().length > 0 : false;
 
   const toggleTags = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,6 +86,9 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
             {event.title}
           </h3>
           <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            {noteId && noteExists && !expanded && (
+              <span className="text-[9px] text-emerald-600" title="Has notes">📝</span>
+            )}
             {onBookmark && (
               <button
                 onClick={onBookmark}
@@ -199,6 +207,23 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
                   )
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Personal notes */}
+          {noteId && (
+            <div className="mt-4 border-t border-white/5 pt-4" onClick={e => e.stopPropagation()}>
+              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">My Notes</p>
+              <textarea
+                value={note}
+                onChange={e => saveNote(e.target.value)}
+                placeholder="Add your own notes about this event…"
+                rows={note.trim() ? Math.min(6, note.split('\n').length + 1) : 2}
+                className="w-full bg-white/3 border border-white/8 focus:border-emerald-500/30 rounded-xl px-3 py-2 text-xs text-slate-300 placeholder-slate-700 outline-none resize-none transition-colors leading-relaxed"
+              />
+              {note.trim() && (
+                <p className="text-[10px] text-slate-700 mt-1 text-right">auto-saved</p>
+              )}
             </div>
           )}
 
