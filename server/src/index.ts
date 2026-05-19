@@ -202,6 +202,7 @@ app.post('/api/timeline', auth, async (req, res) => {
 
     let fullText = '';
     let statusPhase = 0;
+    let metaSent = false;
     const statusMessages = [
       'Analyzing historical sources…',
       'Identifying key events and turning points…',
@@ -223,6 +224,21 @@ app.post('/api/timeline', auth, async (req, res) => {
         if (fullText.length % 1000 < 20 && statusPhase < statusMessages.length) {
           send({ type: 'status', message: statusMessages[statusPhase % statusMessages.length] });
           statusPhase++;
+        }
+
+        // Emit metadata as soon as the events array starts — gives client a fast first render
+        if (!metaSent) {
+          const eventsIdx = fullText.indexOf('"events":[');
+          if (eventsIdx > 0) {
+            try {
+              const metaStr = fullText.slice(0, eventsIdx) + '"events":[]}';
+              const meta = JSON.parse(metaStr) as { topic?: string; period?: string; description?: string };
+              if (meta.topic && meta.period) {
+                send({ type: 'meta', topic: meta.topic, period: meta.period, description: meta.description ?? '' });
+                metaSent = true;
+              }
+            } catch { /* partial JSON — try again next chunk */ }
+          }
         }
       }
     }

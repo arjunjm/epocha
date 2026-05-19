@@ -64,6 +64,11 @@
 
 ---
 
+## Performance & UX
+- [x] Progressive streaming render — server emits a `meta` SSE event as soon as the topic/period/description are parsed from Claude's stream; client immediately shows the header and skeleton event cards, replacing the full-page spinner; full events appear when generation completes
+- [x] Topic autocomplete — native `<datalist>` on the topic input surfaces all pre-built topic suggestions as the user types; zero API cost
+- [x] Reading time + theme count — timeline header shows "~N min read · X events · Y themes" computed from event word counts
+
 ## Token & Cost Optimisation
 - [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
 
