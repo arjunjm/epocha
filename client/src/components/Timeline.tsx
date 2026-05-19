@@ -8,6 +8,7 @@ import FlashcardMode from './FlashcardMode';
 import InsightsPanel from './InsightsPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
+import { useReadProgress } from '../hooks/useReadProgress';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
@@ -67,6 +68,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [figureFilter, setFigureFilter] = useState<string | null>(null);
 
   const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
+  const { markRead, isRead, readCount, allRead } = useReadProgress(data.topic, total);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -216,6 +218,23 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             </p>
           );
         })()}
+
+        {/* Reading progress */}
+        {readCount > 0 && (
+          <div className="flex flex-col items-center gap-1.5 mb-4 fade-up print:hidden">
+            <div className="flex items-center gap-2">
+              <div className="w-32 h-1 rounded-full bg-white/8 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${allRead ? 'bg-gradient-to-r from-emerald-500 to-green-400' : 'bg-gradient-to-r from-emerald-600 to-teal-500'}`}
+                  style={{ width: `${Math.round((readCount / total) * 100)}%` }}
+                />
+              </div>
+              <span className={`text-[11px] font-medium ${allRead ? 'text-emerald-400' : 'text-slate-600'}`}>
+                {allRead ? '✓ All read' : `${readCount} / ${total} read`}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Action bar */}
         <div className="inline-flex flex-wrap items-center justify-center gap-2">
@@ -475,7 +494,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
-                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter}
+                          onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -490,7 +510,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
-                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter}
+                          onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)} />
                       </div>
                     </>
                   )}
@@ -507,7 +528,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                       <EventCard event={event} gradient={gradient} glow={glow} align="left"
                         bookmarked={isBookmarked(data.topic, event)}
                         onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
-                        onFigureClick={handleFigureClick} activeFigure={figureFilter} />
+                        onFigureClick={handleFigureClick} activeFigure={figureFilter}
+                        onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)} />
                     </div>
                   </div>
                 </div>
