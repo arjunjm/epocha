@@ -4,6 +4,7 @@ import Timeline from './components/Timeline';
 import Sidebar from './components/Sidebar';
 import AuthButton from './components/AuthButton';
 import ProfileBadge from './components/ProfileBadge';
+import ProfileModal from './components/ProfileModal';
 import Marketplace from './components/Marketplace';
 import SavedTimelines from './components/SavedTimelines';
 import Discover from './components/Discover';
@@ -20,6 +21,7 @@ export default function App() {
   const [activeTopic, setActiveTopic] = useState<string | undefined>();
   const [page, setPage] = useState<AppPage>('home');
   const [pendingTopic, setPendingTopic] = useState<{ topic: string; start: string; end: string } | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   // Apply theme from user profile
   useEffect(() => {
@@ -213,13 +215,23 @@ export default function App() {
             )}
 
             {user ? (
-              <ProfileBadge user={user} onClick={() => { setPage('marketplace'); setTimeline(null); setStatus({ loading: false }); }} />
+              <ProfileBadge user={user} onClick={() => setShowProfile(true)} />
             ) : null}
 
             <AuthButton user={user} loading={authLoading} onSignIn={signIn} onSignOut={signOut} />
           </div>
         </div>
       </header>
+
+      {/* Profile modal */}
+      {showProfile && user && (
+        <ProfileModal
+          user={user}
+          onClose={() => setShowProfile(false)}
+          onSignOut={() => { setShowProfile(false); void signOut(); }}
+          onOpenMarketplace={() => { setShowProfile(false); setPage('marketplace'); setTimeline(null); setStatus({ loading: false }); }}
+        />
+      )}
 
       {/* Sidebar */}
       <Sidebar
@@ -283,7 +295,11 @@ export default function App() {
                 </div>
 
                 <div className="fade-up w-full max-w-lg" style={{ animationDelay: '0.15s' }}>
-                  <TimelineForm onSubmit={handleGenerate} />
+                  <TimelineForm
+                onSubmit={handleGenerate}
+                remaining={user?.remaining}
+                dailyLimit={user?.dailyLimit}
+              />
                   {!user && (
                     <p className="text-center text-xs text-slate-600 mt-3">
                       Browse sidebar topics freely ·{' '}

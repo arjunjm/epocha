@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react';
 
 interface Props {
   onSubmit: (topic: string, startYear: string, endYear: string) => void;
+  remaining?: number;
+  dailyLimit?: number;
 }
 
-export default function TimelineForm({ onSubmit }: Props) {
+export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props) {
   const [topic, setTopic] = useState('');
   const [startYear, setStartYear] = useState('');
   const [endYear, setEndYear] = useState('');
@@ -14,6 +16,11 @@ export default function TimelineForm({ onSubmit }: Props) {
     if (!topic.trim() || !startYear.trim() || !endYear.trim()) return;
     onSubmit(topic.trim(), startYear.trim(), endYear.trim());
   };
+
+  const used = dailyLimit != null && remaining != null ? dailyLimit - remaining : null;
+  const pct = used != null && dailyLimit ? used / dailyLimit : 0;
+  const isLow = remaining != null && remaining <= 2;
+  const isOut = remaining === 0;
 
   return (
     <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 sm:p-8">
@@ -65,10 +72,30 @@ export default function TimelineForm({ onSubmit }: Props) {
 
       <button
         type="submit"
-        className="w-full py-4 rounded-xl font-semibold text-sm tracking-wide text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 active:scale-[0.98] transition-all shadow-lg shadow-amber-500/20"
+        disabled={isOut}
+        className="w-full py-4 rounded-xl font-semibold text-sm tracking-wide text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 active:scale-[0.98] transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        Generate Timeline →
+        {isOut ? 'Daily limit reached' : 'Generate Timeline →'}
       </button>
+
+      {/* Daily usage bar */}
+      {used != null && dailyLimit != null && (
+        <div className="mt-4">
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-[10px] text-slate-600">Daily generations</span>
+            <span className={`text-[10px] font-semibold ${isOut ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-slate-600'}`}>
+              {used}/{dailyLimit}
+              {isOut && ' · Resets at midnight UTC'}
+            </span>
+          </div>
+          <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+              style={{ width: `${Math.min(pct * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </form>
   );
 }

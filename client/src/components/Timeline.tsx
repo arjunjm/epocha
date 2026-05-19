@@ -46,6 +46,24 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [collectionName, setCollectionName] = useState('General');
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
+
+  // Collect all unique tags across events
+  const allTags = Array.from(
+    new Set(data.events.flatMap(e => e.tags ?? []))
+  ).sort();
+
+  const toggleTag = (tag: string) => {
+    setActiveTags(prev => {
+      const next = new Set(prev);
+      next.has(tag) ? next.delete(tag) : next.add(tag);
+      return next;
+    });
+  };
+
+  const visibleEvents = activeTags.size === 0
+    ? data.events
+    : data.events.filter(e => e.tags?.some(t => activeTags.has(t)));
 
   // Extract topic/period info for quiz and save
   const topicParts = data.period.split(' to ');
@@ -162,6 +180,41 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         )}
         {saveError && <p className="mt-2 text-red-400 text-xs">{saveError}</p>}
 
+        {/* Tag filter */}
+        {allTags.length > 0 && (
+          <div className="mt-5 flex flex-wrap justify-center gap-1.5 print:hidden">
+            {allTags.map(tag => {
+              const active = activeTags.has(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border ${
+                    active
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                      : 'bg-white/3 border-white/10 text-slate-600 hover:border-white/20 hover:text-slate-400'
+                  }`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+            {activeTags.size > 0 && (
+              <button
+                onClick={() => setActiveTags(new Set())}
+                className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/10 text-slate-600 hover:text-slate-300 transition-colors"
+              >
+                × clear
+              </button>
+            )}
+          </div>
+        )}
+        {activeTags.size > 0 && (
+          <p className="mt-2 text-xs text-slate-600 text-center">
+            {visibleEvents.length} of {data.events.length} events
+          </p>
+        )}
+
         {/* Quiz result banner */}
         {quizResult && (
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 fade-up">
@@ -175,8 +228,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
 
         <div className="space-y-6 lg:space-y-0">
-          {data.events.map((event, index) => {
-            const { gradient, glow } = getGradient(index, total);
+          {visibleEvents.map((event, index) => {
+            const { gradient, glow } = getGradient(index, visibleEvents.length);
             const isLeft = index % 2 === 0;
 
             return (
