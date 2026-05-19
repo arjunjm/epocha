@@ -7,6 +7,8 @@ interface Props {
   glow: string;
   align: 'left' | 'right';
   defaultExpanded?: boolean;
+  bookmarked?: boolean;
+  onBookmark?: (e: React.MouseEvent) => void;
 }
 
 const TAG_STYLES = [
@@ -36,7 +38,7 @@ function formatEventText(event: TimelineEvent): string {
 
 const TAGS_PREF_KEY = 'epocha-tags-expanded';
 
-export default function EventCard({ event, gradient, align, defaultExpanded = false }: Props) {
+export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(() => {
@@ -76,10 +78,23 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
           <h3 className="font-serif text-lg sm:text-xl font-bold text-white leading-snug">
             {event.title}
           </h3>
-          <div className={`shrink-0 mt-1 transition-transform duration-300 text-slate-500 ${expanded ? 'rotate-180' : ''}`}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            {onBookmark && (
+              <button
+                onClick={onBookmark}
+                className={`transition-colors p-0.5 ${bookmarked ? 'text-amber-400' : 'text-slate-700 hover:text-slate-400'}`}
+                title={bookmarked ? 'Remove bookmark' : 'Bookmark this event'}
+              >
+                <svg className="w-3.5 h-3.5" fill={bookmarked ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                </svg>
+              </button>
+            )}
+            <div className={`transition-transform duration-300 text-slate-500 ${expanded ? 'rotate-180' : ''}`}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
         </div>
 

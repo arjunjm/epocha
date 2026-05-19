@@ -3,7 +3,9 @@ import EventCard from './EventCard';
 import QuizModal from './QuizModal';
 import KeyboardHelp from './KeyboardHelp';
 import TimeMachine from './TimeMachine';
+import BookmarksPanel from './BookmarksPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useBookmarks } from '../hooks/useBookmarks';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
@@ -57,6 +59,9 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+
+  const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -234,6 +239,13 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             title="Search events"
           >
             🔍 Search
+          </button>
+          <button
+            onClick={() => setShowBookmarks(true)}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${bookmarks.length > 0 ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
+            title="Bookmarks"
+          >
+            🔖 {bookmarks.length > 0 ? `${bookmarks.length} saved` : 'Bookmarks'}
           </button>
           <button
             onClick={() => setCompact(c => !c)}
@@ -417,7 +429,9 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                   {isLeft ? (
                     <>
                       <div className="lg:text-right lg:pr-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false} />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false}
+                          bookmarked={isBookmarked(data.topic, event)}
+                          onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -429,7 +443,9 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <DatePill date={event.date} gradient={gradient} />
                       </div>
                       <div className="lg:pl-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false} />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false}
+                          bookmarked={isBookmarked(data.topic, event)}
+                          onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }} />
                       </div>
                     </>
                   )}
@@ -443,7 +459,9 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                       <DatePill date={event.date} gradient={gradient} />
                     </div>
                     <div className="pl-5 border-l border-white/10">
-                      <EventCard event={event} gradient={gradient} glow={glow} align="left" />
+                      <EventCard event={event} gradient={gradient} glow={glow} align="left"
+                        bookmarked={isBookmarked(data.topic, event)}
+                        onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }} />
                     </div>
                   </div>
                 </div>
@@ -493,6 +511,15 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           events={visibleEvents}
           topic={data.topic}
           onClose={() => setTimeMachine(false)}
+        />
+      )}
+
+      {showBookmarks && (
+        <BookmarksPanel
+          bookmarks={bookmarks}
+          onRemove={removeBookmark}
+          onClear={clearBookmarks}
+          onClose={() => setShowBookmarks(false)}
         />
       )}
 

@@ -100,6 +100,7 @@
 - [x] Open Graph / social meta tags — server injects dynamic og:title, og:description, and meta description into the HTML for shared `?topic=` links; enables rich previews on Slack, Discord, Twitter
 - [x] Recently viewed history — last 8 timelines stored in localStorage; shown at the top of the sidebar as "Recent"; deduplicates by topic key
 - [x] Keyboard shortcuts — Q (quiz), B (bookmark), C (compact view), H (home), ? (help modal), Escape (close modals); inactive when typing in inputs; help overlay shows all bindings
+- [x] Event bookmarks — bookmark icon on each event card; bookmarks persisted across sessions in localStorage; slide-in panel groups bookmarks by topic with inline expand, remove, clear-all, and Markdown export; action bar shows live count
 - [x] Compact list view — toggle between full alternating view and dense scannable rows; each row expands inline to show summary/significance/figures
 
 ## Infrastructure & Deployment
