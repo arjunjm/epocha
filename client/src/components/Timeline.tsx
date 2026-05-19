@@ -8,6 +8,7 @@ import FlashcardMode from './FlashcardMode';
 import InsightsPanel from './InsightsPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
+import { hasNote } from '../hooks/useNote';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
@@ -112,6 +113,9 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     setSearchQuery('');
   };
 
+  const noteId = (event: import('../types').TimelineEvent) =>
+    `${data.topic}::${event.date}::${event.title}`;
+
   const topicParts = data.period.split(' to ');
   const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
   const endYear = topicParts[1]?.replace(/\D/g, '') ?? '9999';
@@ -166,6 +170,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
       lines.push(`**Significance:** ${event.significance}`);
       if (event.figures?.length) lines.push(`**Key Figures:** ${event.figures.join(', ')}`);
       if (event.tags?.length) lines.push(`**Tags:** ${event.tags.join(', ')}`);
+      const savedNote = (() => { try { return localStorage.getItem(`epocha-note::${noteId(event)}`) ?? ''; } catch { return ''; } })();
+      if (savedNote.trim()) lines.push('', `**My Notes:** ${savedNote.trim()}`);
       lines.push('');
       lines.push('---');
       lines.push('');
@@ -475,7 +481,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
-                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter}
+                          noteId={noteId(event)} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -490,7 +497,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
-                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter}
+                          noteId={noteId(event)} />
                       </div>
                     </>
                   )}
@@ -507,7 +515,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                       <EventCard event={event} gradient={gradient} glow={glow} align="left"
                         bookmarked={isBookmarked(data.topic, event)}
                         onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
-                        onFigureClick={handleFigureClick} activeFigure={figureFilter} />
+                        onFigureClick={handleFigureClick} activeFigure={figureFilter}
+                        noteId={noteId(event)} />
                     </div>
                   </div>
                 </div>
