@@ -103,6 +103,7 @@
 - [x] Event bookmarks — bookmark icon on each event card; bookmarks persisted across sessions in localStorage; slide-in panel groups bookmarks by topic with inline expand, remove, clear-all, and Markdown export; action bar shows live count
 - [x] Compact list view — toggle between full alternating view and dense scannable rows; each row expands inline to show summary/significance/figures
 - [x] Flashcard Study Mode — "🃏 Flashcards" in action bar; full-screen study mode shows event title, hides date/summary until "Reveal"; score yourself ✓/✗ per card; colour-coded dot progress; final score screen with retry-missed option; keyboard shortcuts (Space=reveal, C/→=knew it, X/←=missed it, Esc=exit)
+- [x] Timeline Insights Panel — "📊 Insights" button opens a modal with computed analytics: events-by-century bar chart, top mentioned figures, top themes, key locations (all with proportional bars); summary stats row (total events, reading time, word count, location count)
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

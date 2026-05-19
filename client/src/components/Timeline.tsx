@@ -5,6 +5,7 @@ import KeyboardHelp from './KeyboardHelp';
 import TimeMachine from './TimeMachine';
 import BookmarksPanel from './BookmarksPanel';
 import FlashcardMode from './FlashcardMode';
+import InsightsPanel from './InsightsPanel';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { toast } from '../utils/toast';
@@ -62,6 +63,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
 
   const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
 
@@ -216,6 +218,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 transition-colors"
           >
             🕰 Time Machine
+          </button>
+          <button
+            onClick={() => setShowInsights(true)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-teal-300 border border-teal-400/30 bg-teal-400/5 hover:bg-teal-400/10 transition-colors print:hidden"
+          >
+            📊 Insights
           </button>
           <button
             onClick={() => setShowQuiz(true)}
@@ -538,6 +546,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           onClose={() => setShowFlashcards(false)}
         />
       )}
+
+      {showInsights && <InsightsPanel data={data} onClose={() => setShowInsights(false)} />}
 
       {showQuiz && (
         <QuizModal
