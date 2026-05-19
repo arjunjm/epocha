@@ -6,6 +6,7 @@ interface Props {
   gradient: string;
   glow: string;
   align: 'left' | 'right';
+  defaultExpanded?: boolean;
 }
 
 const TAG_STYLES = [
@@ -33,8 +34,8 @@ function formatEventText(event: TimelineEvent): string {
   return lines.filter(l => l !== undefined).join('\n').trim();
 }
 
-export default function EventCard({ event, gradient, align }: Props) {
-  const [expanded, setExpanded] = useState(false);
+export default function EventCard({ event, gradient, align, defaultExpanded = false }: Props) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
 
   const paragraphs = event.details
