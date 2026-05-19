@@ -62,6 +62,11 @@
 ## Token & Cost Optimisation
 - [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
 
+## User Experience Polish
+- [x] Tag filter on timeline — clickable tag chips filter visible events; shows filtered count; multi-select with OR logic; clear button resets
+- [x] Daily usage indicator — progress bar under the generate form shows N/limit used; turns amber at 2 remaining, red when exhausted; resets note at midnight UTC
+- [x] Profile stats modal — clicking the level badge opens an overlay with XP progress, level title, daily usage bar, unlocked themes grid, and XP rewards guide
+
 ## Discovery & Sharing
 - [x] Shareable timeline URLs — topic/start/end encoded in query params; URL updates on load; auto-loads on page open; "Share" button copies link to clipboard
 - [x] Discover page — visual grid of all built-in topics grouped by category with search + filter; publicly accessible (no login required)
