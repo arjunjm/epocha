@@ -10,12 +10,14 @@ import SavedTimelines from './components/SavedTimelines';
 import Discover from './components/Discover';
 import Spotlight from './components/Spotlight';
 import { useAuth } from './hooks/useAuth';
+import { useHistory } from './hooks/useHistory';
 import type { TimelineData, AppStatus, AppPage } from './types';
 
 const DEFAULT_PERIOD = { start: '1', end: '2000' };
 
 export default function App() {
   const { user, loading: authLoading, signIn, signOut, refresh } = useAuth();
+  const { history, push: pushHistory } = useHistory();
   const [timeline, setTimeline] = useState<TimelineData | null>(null);
   const [status, setStatus] = useState<AppStatus>({ loading: false });
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,6 +63,7 @@ export default function App() {
         setTimeline(data.timeline);
         setStatus({ loading: false });
         pushTimelineUrl(topic, startYear, endYear);
+        pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
         return;
       }
       // Not cached — need auth to generate
@@ -115,6 +118,7 @@ export default function App() {
               setTimeline(data.timeline);
               setStatus({ loading: false });
               pushTimelineUrl(topic, startYear, endYear);
+              pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
               void refresh();
             } else if (data.type === 'error' && data.message) {
               throw new Error(data.message);
@@ -242,6 +246,7 @@ export default function App() {
         onClose={() => setSidebarOpen(false)}
         user={user}
         onSignIn={signIn}
+        history={history}
       />
 
       {/* Main content */}

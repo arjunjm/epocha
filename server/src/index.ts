@@ -419,10 +419,55 @@ app.delete('/api/topics/custom/:id', auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── SPA fallback ───────────────────────────────────────────────────────────
+// ── SPA fallback — with dynamic OG meta tags for shared timeline URLs ─────
 
-app.get('*', (_req, res) => {
+let indexHtmlTemplate: string | null = null;
+
+function getIndexHtml(): string {
+  if (!indexHtmlTemplate) {
+    const indexPath = path.join(clientDistPath, 'index.html');
+    try { indexHtmlTemplate = fs.readFileSync(indexPath, 'utf-8'); } catch { return ''; }
+  }
+  return indexHtmlTemplate;
+}
+
+function injectOgMeta(html: string, title: string, description: string): string {
+  const escaped = (s: string) => s.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const tags = [
+    `<meta property="og:title" content="${escaped(title)}">`,
+    `<meta property="og:description" content="${escaped(description)}">`,
+    `<meta property="og:type" content="article">`,
+    `<meta property="og:site_name" content="Epocha">`,
+    `<meta name="description" content="${escaped(description)}">`,
+    `<title>${escaped(title)}</title>`,
+  ].join('\n    ');
+
+  // Replace the default <title> tag and inject OG tags before </head>
+  return html
+    .replace(/<title>[^<]*<\/title>/, '')
+    .replace('</head>', `    ${tags}\n  </head>`);
+}
+
+app.get('*', async (req, res) => {
   const indexPath = path.join(clientDistPath, 'index.html');
+  const html = getIndexHtml();
+
+  // If URL has timeline params, try to inject OG meta from cache
+  const topic = req.query.topic as string | undefined;
+  const start = req.query.start as string | undefined;
+  const end = req.query.end as string | undefined;
+
+  if (html && topic && start && end) {
+    const cached = await getCached(topic, start, end);
+    if (cached) {
+      const title = `${cached.topic} · ${start} – ${end} | Epocha`;
+      const description = cached.description.slice(0, 200);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(injectOgMeta(html, title, description));
+      return;
+    }
+  }
+
   res.sendFile(indexPath, (err) => { if (err) res.status(404).send('Not found'); });
 });
 

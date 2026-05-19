@@ -76,8 +76,11 @@
 - [x] Shareable timeline URLs — topic/start/end encoded in query params; URL updates on load; auto-loads on page open; "Share" button copies link to clipboard
 - [x] Discover page — visual grid of all built-in topics grouped by category with search + filter; publicly accessible (no login required)
 - [x] Historical Spotlight — home screen shows a random event from a pre-cached timeline; loads instantly with zero API calls; clicking navigates to the full timeline
-- [x] Compact list view — toggle in timeline header switches between full alternating view and a dense scannable list; individual events expand inline
 - [x] PWA / installable — manifest.json + service worker; app is installable on mobile/desktop; static assets cached; navigation offline-resilient
+- [x] Open Graph / social meta tags — server injects dynamic og:title, og:description, and meta description into the HTML for shared `?topic=` links; enables rich previews on Slack, Discord, Twitter
+- [x] Recently viewed history — last 8 timelines stored in localStorage; shown at the top of the sidebar as "Recent"; deduplicates by topic key
+- [x] Keyboard shortcuts — Q (quiz), B (bookmark), C (compact view), H (home), ? (help modal), Escape (close modals); inactive when typing in inputs; help overlay shows all bindings
+- [x] Compact list view — toggle between full alternating view and dense scannable rows; each row expands inline to show summary/significance/figures
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

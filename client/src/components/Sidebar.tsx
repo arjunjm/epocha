@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { TOPIC_TAXONOMY, type TopicEntry } from '../data/topics';
 import type { CustomTopic } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
+import type { HistoryEntry } from '../hooks/useHistory';
 
 interface Props {
   onSelect: (topic: string, start: string, end: string) => void;
@@ -10,9 +11,10 @@ interface Props {
   onClose: () => void;
   user?: AuthUser | null;
   onSignIn?: () => void;
+  history?: HistoryEntry[];
 }
 
-export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, onSignIn }: Props) {
+export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, onSignIn, history = [] }: Props) {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['Philosophy', 'Science & Technology'])
   );
@@ -96,6 +98,35 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
         </div>
 
         <div className="flex-1 overflow-y-auto py-2 scrollbar-thin">
+          {/* Recently viewed */}
+          {history.length > 0 && (
+            <div className="mb-1 border-b border-white/5 pb-2">
+              <p className="px-4 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Recent</p>
+              {history.slice(0, 5).map(entry => {
+                const isActive = activeTopic === entry.topic;
+                return (
+                  <button
+                    key={`${entry.topic}-${entry.start}`}
+                    onClick={() => { onSelect(entry.topic, entry.start, entry.end); onClose(); }}
+                    className={`
+                      w-full text-left px-4 py-2 pl-8 text-xs transition-all
+                      flex items-center justify-between group/item
+                      ${isActive
+                        ? 'text-amber-300 bg-amber-400/10 border-r-2 border-amber-400'
+                        : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <span className="leading-snug truncate">🕐 {entry.title}</span>
+                    <span className={`text-[10px] shrink-0 ml-2 transition-opacity text-slate-700 opacity-0 group-hover/item:opacity-100`}>
+                      {entry.start}–{entry.end}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Built-in topic taxonomy */}
           {TOPIC_TAXONOMY.map((category) => {
             const isExpanded = openSections.has(category.label);
