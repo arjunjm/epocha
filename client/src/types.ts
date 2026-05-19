@@ -83,4 +83,4 @@ export type LoadingStatus = { loading: true; message: string };
 export type IdleStatus = { loading: false; error?: string };
 export type AppStatus = LoadingStatus | IdleStatus;
 
-export type AppPage = 'home' | 'marketplace' | 'saved' | 'discover';
+export type AppPage = 'home' | 'marketplace' | 'saved' | 'discover' | 'paths';

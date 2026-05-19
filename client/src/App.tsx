@@ -12,6 +12,7 @@ import Spotlight from './components/Spotlight';
 import TimelineSkeleton from './components/TimelineSkeleton';
 import Toaster from './components/Toaster';
 import SurpriseButton from './components/SurpriseButton';
+import Paths from './components/Paths';
 import { toast } from './utils/toast';
 import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
@@ -250,12 +251,18 @@ export default function App() {
               </button>
             )}
 
-            {/* Nav links — Discover is public; others require login */}
+            {/* Nav links — Discover and Paths are public; others require login */}
             <button
               onClick={() => { setPage('discover'); setTimeline(null); setStatus({ loading: false }); }}
               className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'discover' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
             >
               Discover
+            </button>
+            <button
+              onClick={() => { setPage('paths'); setTimeline(null); setStatus({ loading: false }); }}
+              className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'paths' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+            >
+              Paths
             </button>
             {user && (
               <>
@@ -310,6 +317,11 @@ export default function App() {
         {/* Discover page — public */}
         {page === 'discover' && (
           <Discover onSelect={(topic, s, e) => { setPage('home'); void handleBrowse(topic, s, e); }} />
+        )}
+
+        {/* Learning Paths page — public */}
+        {page === 'paths' && (
+          <Paths onSelect={(topic, s, e) => { setPage('home'); void handleBrowse(topic, s, e); }} />
         )}
 
         {/* Marketplace page */}

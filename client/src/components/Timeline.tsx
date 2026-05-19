@@ -387,7 +387,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                   {isLeft ? (
                     <>
                       <div className="lg:text-right lg:pr-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="right" />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={index === 0} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -399,7 +399,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <DatePill date={event.date} gradient={gradient} />
                       </div>
                       <div className="lg:pl-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="left" />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={index === 0} />
                       </div>
                     </>
                   )}
