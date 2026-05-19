@@ -513,8 +513,11 @@ function SocialShareButtons({ topic, period }: { topic: string; period: string }
 
 function DatePill({ date, gradient }: { date: string; gradient: string }) {
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${gradient} shadow-md whitespace-nowrap`}>
-      {date}
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap`}>
+      <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-br ${gradient} flex-shrink-0`} />
+      <span className={`font-cinzel font-bold text-sm tracking-wide bg-gradient-to-r ${gradient} bg-clip-text text-transparent drop-shadow-sm`}>
+        {date}
+      </span>
     </span>
   );
 }
@@ -530,7 +533,7 @@ function CompactRow({ event, gradient, index }: { event: import('../types').Time
         <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 bg-gradient-to-br ${gradient}`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className={`text-[10px] font-bold bg-gradient-to-r ${gradient} bg-clip-text text-transparent whitespace-nowrap`}>
+            <span className={`font-cinzel font-bold text-sm tracking-wide bg-gradient-to-r ${gradient} bg-clip-text text-transparent whitespace-nowrap`}>
               {event.date}
             </span>
             <span className="text-slate-200 text-sm font-medium leading-snug group-hover:text-white transition-colors">
