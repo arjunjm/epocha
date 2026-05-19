@@ -8,6 +8,7 @@ import ProfileModal from './components/ProfileModal';
 import Marketplace from './components/Marketplace';
 import SavedTimelines from './components/SavedTimelines';
 import Discover from './components/Discover';
+import Spotlight from './components/Spotlight';
 import { useAuth } from './hooks/useAuth';
 import type { TimelineData, AppStatus, AppPage } from './types';
 
@@ -293,6 +294,8 @@ export default function App() {
                     <div className="h-px w-24 bg-gradient-to-l from-transparent to-white/10" />
                   </div>
                 </div>
+
+                <Spotlight onSelect={(topic, s, e) => void handleBrowse(topic, s, e)} />
 
                 <div className="fade-up w-full max-w-lg" style={{ animationDelay: '0.15s' }}>
                   <TimelineForm
