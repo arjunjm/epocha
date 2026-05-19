@@ -73,6 +73,9 @@
 - [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
 
 ## User Experience Polish
+- [x] In-timeline text search — 🔍 Search button in timeline action bar opens a live search input; filters events by keyword match across title, summary, significance, figures, and location; works alongside tag filter; "X of Y events matching" count shown; Escape clears
+- [x] Achievement badges — 8 badges shown in profile modal grid (First Steps, Scholar/Historian/Grand Historian/Epocha Master via level, Collector/Librarian/Curator via save count); unearned badges shown greyed/desaturated with progress bar; earned count displayed
+- [x] Social share buttons — Twitter/X and LinkedIn share buttons in timeline header; pre-composed text includes topic, period, and current URL; open in new tab
 - [x] Session restoration — last viewed timeline auto-restored from localStorage on app open (24-hour TTL); "Restored from your last session" banner fades in; cleared on reset
 - [x] Scroll progress bar — thin amber gradient bar at the top of the viewport tracks reading progress through the timeline; hidden on home/loading screens and in print
 - [x] Event copy button — "Copy" button in each expanded EventCard copies formatted text (title, date, location, summary, details, significance, figures, tags); shows "✓ Copied" confirmation
