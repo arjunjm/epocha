@@ -4,6 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import Anthropic from '@anthropic-ai/sdk';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { STUB_TIMELINE } from './stubData.js';
 import { passport, requireAuth, signToken, setAuthCookie, clearAuthCookie, configurePassport } from './auth.js';
@@ -18,13 +19,24 @@ const auth = requireAuth as express.RequestHandler;
 const USE_STUB = process.env.USE_STUB === 'true';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Client build is at different relative paths in dev vs production:
+// Dev:  server/dist/index.js → ../../client/dist
+// Prod: wwwroot/dist/index.js → ../client/dist
+const _clientCandidates: string[] = [
+  path.join(__dirname, '../client/dist'),    // production (Azure wwwroot/dist/)
+  path.join(__dirname, '../../client/dist'), // local dev (server/dist/)
+];
+const clientDistPath: string = _clientCandidates.find((p: string) => fs.existsSync(p))
+  ?? _clientCandidates[0]!;
+
 const app = express();
 
 app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
-app.use(express.static(path.join(__dirname, '../../client/dist')));
+app.use(express.static(clientDistPath));
 
 // ── Auth routes ────────────────────────────────────────────────────────────
 
