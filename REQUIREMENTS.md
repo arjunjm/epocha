@@ -101,6 +101,7 @@
 - [x] Recently viewed history — last 8 timelines stored in localStorage; shown at the top of the sidebar as "Recent"; deduplicates by topic key
 - [x] Keyboard shortcuts — Q (quiz), B (bookmark), C (compact view), H (home), ? (help modal), Escape (close modals); inactive when typing in inputs; help overlay shows all bindings
 - [x] Compact list view — toggle between full alternating view and dense scannable rows; each row expands inline to show summary/significance/figures
+- [x] Key Figure Explorer — click any figure name in "Key Figures" to filter the entire timeline to events featuring that person; "Viewing history through [Name]" banner shows filtered count; active figure highlighted violet; click again or × to clear
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

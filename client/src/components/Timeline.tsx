@@ -55,6 +55,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [figureFilter, setFigureFilter] = useState<string | null>(null);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -82,15 +83,23 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const tagFiltered = activeTags.size === 0
     ? data.events
     : data.events.filter(e => e.tags?.some(t => activeTags.has(t)));
+  const figureFiltered = figureFilter
+    ? tagFiltered.filter(e => e.figures?.includes(figureFilter))
+    : tagFiltered;
   const visibleEvents = q === ''
-    ? tagFiltered
-    : tagFiltered.filter(e =>
+    ? figureFiltered
+    : figureFiltered.filter(e =>
         e.title.toLowerCase().includes(q) ||
         e.summary.toLowerCase().includes(q) ||
         e.significance.toLowerCase().includes(q) ||
         e.figures?.some(f => f.toLowerCase().includes(q)) ||
         e.location?.toLowerCase().includes(q)
       );
+
+  const handleFigureClick = (name: string) => {
+    setFigureFilter(prev => prev === name ? null : name);
+    setSearchQuery('');
+  };
 
   const topicParts = data.period.split(' to ');
   const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
@@ -377,6 +386,24 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           </div>
         )}
 
+        {/* Figure filter banner */}
+        {figureFilter && (
+          <div className="mt-4 fade-up flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/30">
+              <span className="text-xs text-slate-500">👤 Viewing history through</span>
+              <span className="text-xs font-semibold text-violet-300">{figureFilter}</span>
+              <span className="text-slate-700 text-xs">· {visibleEvents.length} event{visibleEvents.length !== 1 ? 's' : ''}</span>
+              <button
+                onClick={() => setFigureFilter(null)}
+                className="text-slate-600 hover:text-slate-300 transition-colors text-xs ml-1"
+                title="Clear figure filter"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Quiz result banner */}
         {quizResult && (
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 fade-up">
@@ -409,7 +436,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                   {isLeft ? (
                     <>
                       <div className="lg:text-right lg:pr-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false} />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false}
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -421,7 +449,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                         <DatePill date={event.date} gradient={gradient} />
                       </div>
                       <div className="lg:pl-10">
-                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false} />
+                        <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false}
+                          onFigureClick={handleFigureClick} activeFigure={figureFilter} />
                       </div>
                     </>
                   )}
@@ -435,7 +464,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
                       <DatePill date={event.date} gradient={gradient} />
                     </div>
                     <div className="pl-5 border-l border-white/10">
-                      <EventCard event={event} gradient={gradient} glow={glow} align="left" />
+                      <EventCard event={event} gradient={gradient} glow={glow} align="left"
+                        onFigureClick={handleFigureClick} activeFigure={figureFilter} />
                     </div>
                   </div>
                 </div>
