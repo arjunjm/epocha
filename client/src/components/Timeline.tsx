@@ -2,6 +2,7 @@ import { useState } from 'react';
 import EventCard from './EventCard';
 import QuizModal from './QuizModal';
 import KeyboardHelp from './KeyboardHelp';
+import FlashcardMode from './FlashcardMode';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
@@ -55,6 +56,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
+  const [showFlashcards, setShowFlashcards] = useState(false);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -207,6 +209,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
           >
             🧠 Take Quiz
+          </button>
+          <button
+            onClick={() => setShowFlashcards(true)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-cyan-300 border border-cyan-400/30 bg-cyan-400/5 hover:bg-cyan-400/10 transition-colors print:hidden"
+          >
+            🃏 Flashcards
           </button>
           {!saved ? (
             <button
@@ -479,6 +487,14 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
       </div>
 
       {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
+
+      {showFlashcards && (
+        <FlashcardMode
+          events={visibleEvents.length > 0 ? visibleEvents : data.events}
+          topic={data.topic}
+          onClose={() => setShowFlashcards(false)}
+        />
+      )}
 
       {showQuiz && (
         <QuizModal
