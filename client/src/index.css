@@ -93,3 +93,92 @@
   background-size: 200% auto;
   animation: shimmer 2s linear infinite;
 }
+
+/* ── Timeline Themes ─────────────────────────────────────────────────────── */
+
+[data-theme="sepia"] body,
+[data-theme="sepia"] .hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(139, 90, 20, 0.20) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(180, 120, 30, 0.12) 0%, transparent 50%),
+    #1a1208;
+}
+[data-theme="sepia"] ::-webkit-scrollbar-thumb { background: rgba(180,120,30,0.35); }
+[data-theme="sepia"] .timeline-line {
+  background: linear-gradient(to bottom, #b5853a, #c9a064, #a0722a, #8b6914, #6b4f0e);
+}
+
+[data-theme="neon"] body,
+[data-theme="neon"] .hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 255, 200, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(255, 0, 180, 0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(100, 0, 255, 0.12) 0%, transparent 50%),
+    #060812;
+}
+[data-theme="neon"] ::-webkit-scrollbar-thumb { background: rgba(0,255,200,0.35); }
+[data-theme="neon"] .timeline-line {
+  background: linear-gradient(to bottom, #00ffcc, #ff00cc, #ffff00, #00ccff, #cc00ff);
+}
+
+[data-theme="ocean"] body,
+[data-theme="ocean"] .hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 100, 200, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(0, 180, 220, 0.10) 0%, transparent 50%),
+    #020c1a;
+}
+[data-theme="ocean"] ::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.35); }
+[data-theme="ocean"] .timeline-line {
+  background: linear-gradient(to bottom, #38bdf8, #0ea5e9, #06b6d4, #0891b2, #164e63);
+}
+
+[data-theme="forest"] body,
+[data-theme="forest"] .hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 120, 50, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(60, 180, 80, 0.10) 0%, transparent 50%),
+    #040e07;
+}
+[data-theme="forest"] ::-webkit-scrollbar-thumb { background: rgba(74,222,128,0.35); }
+[data-theme="forest"] .timeline-line {
+  background: linear-gradient(to bottom, #4ade80, #22c55e, #16a34a, #15803d, #166534);
+}
+
+/* ── Print / PDF styles ──────────────────────────────────────────────────── */
+
+@media print {
+  body {
+    background: white !important;
+    color: #1a1a1a !important;
+  }
+
+  .hero-bg { background: white !important; }
+
+  header,
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  main {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  .glass {
+    background: #f8f8f8 !important;
+    border-color: #e0e0e0 !important;
+    backdrop-filter: none !important;
+  }
+
+  .timeline-print-container {
+    max-width: 100% !important;
+    padding: 0 20px !important;
+  }
+
+  h2, h3 { color: #1a1a1a !important; }
+  p, span { color: #333 !important; }
+
+  .fade-up { animation: none !important; opacity: 1 !important; }
+}

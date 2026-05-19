@@ -27,6 +27,7 @@ const SECRET_NAMES = [
   'anthropic-api-key',
   'google-client-id',
   'google-client-secret',
+  'google-callback-url',
   'jwt-secret',
   'cosmos-endpoint',
   'cosmos-key',

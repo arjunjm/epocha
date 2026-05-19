@@ -7,28 +7,30 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { STUB_TIMELINE } from './stubData.js';
-import { passport, requireAuth, signToken, setAuthCookie, clearAuthCookie, configurePassport } from './auth.js';
-import { checkAndIncrementRateLimit, findUser, DAILY_LIMIT } from './userStore.js';
+import { passport, requireAuth, optionalAuth, signToken, setAuthCookie, clearAuthCookie, configurePassport } from './auth.js';
+import {
+  checkAndIncrementRateLimit, findUser, DAILY_LIMIT,
+  awardXP, checkAndAwardDailyLogin, unlockTheme, setActiveTheme,
+  getSavedTimelines, saveTimeline, deleteSavedTimeline,
+  getCustomTopics, saveCustomTopic, deleteCustomTopic,
+} from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz } from './cache.js';
+import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
+import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
 
-// Cast helper — lets us use AuthRequest handlers on Express routes without type gymnastics
 const auth = requireAuth as express.RequestHandler;
+const optAuth = optionalAuth as express.RequestHandler;
 
 const USE_STUB = process.env.USE_STUB === 'true';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Client build is at different relative paths in dev vs production:
-// Dev:  server/dist/index.js → ../../client/dist
-// Prod: wwwroot/dist/index.js → ../client/dist
 const _clientCandidates: string[] = [
-  path.join(__dirname, '../client/dist'),    // production (Azure wwwroot/dist/)
-  path.join(__dirname, '../../client/dist'), // local dev (server/dist/)
+  path.join(__dirname, '../client/dist'),
+  path.join(__dirname, '../../client/dist'),
 ];
-const clientDistPath: string = _clientCandidates.find((p: string) => fs.existsSync(p))
-  ?? _clientCandidates[0]!;
+const clientDistPath: string = _clientCandidates.find((p: string) => fs.existsSync(p)) ?? _clientCandidates[0]!;
 
 const app = express();
 
@@ -40,43 +42,48 @@ app.use(express.static(clientDistPath));
 
 // ── Auth routes ────────────────────────────────────────────────────────────
 
-// Start Google OAuth flow
 app.get('/api/auth/google', passport.authenticate('google', { session: false }));
 
-// Google OAuth callback
 app.get('/api/auth/google/callback',
   passport.authenticate('google', { session: false, failureRedirect: '/?auth=failed' }),
   (req, res) => {
-    const user = req.user as import('./types.js').User;
+    const user = req.user as User;
     const token = signToken(user);
     setAuthCookie(res, token);
     res.redirect('/');
   }
 );
 
-// Get current user
 app.get('/api/auth/me', auth, async (req, res) => {
-  const user = await findUser((req as AuthRequest).user!.id);
+  const authReq = req as AuthRequest;
+  const user = await findUser(authReq.user!.id);
   if (!user) { res.status(401).json({ error: 'User not found' }); return; }
-  const { dailyCount } = user;
+
+  // Award daily login XP silently
+  void checkAndAwardDailyLogin(user.id);
+
   res.json({
     id: user.id,
     name: user.name,
     email: user.email,
     picture: user.picture,
-    dailyCount,
+    dailyCount: user.dailyCount,
     dailyLimit: DAILY_LIMIT,
-    remaining: Math.max(0, DAILY_LIMIT - dailyCount),
+    remaining: Math.max(0, DAILY_LIMIT - user.dailyCount),
+    xp: user.xp ?? 0,
+    level: user.level ?? 1,
+    activeTheme: user.activeTheme ?? 'midnight',
+    unlockedThemes: user.unlockedThemes ?? ['midnight'],
   });
 });
 
-// Sign out
 app.post('/api/auth/logout', (req, res) => {
   clearAuthCookie(res);
   res.json({ ok: true });
 });
 
-// Anthropic client — initialised after loadSecrets() so the api key is available
+// ── Anthropic client ───────────────────────────────────────────────────────
+
 let client: Anthropic;
 function getAnthropicClient() {
   if (!client) client = new Anthropic({ apiKey: getSecret('anthropic-api-key') || undefined });
@@ -103,7 +110,8 @@ Return ONLY a valid JSON object — no markdown, no code blocks, no preamble. Us
       "location": "Geographic location",
       "tags": ["thematic-tag-1", "thematic-tag-2"]
     }
-  ]
+  ],
+  "relatedTopics": ["Related Topic 1", "Related Topic 2", "Related Topic 3", "Related Topic 4", "Related Topic 5"]
 }
 
 Rules:
@@ -111,8 +119,31 @@ Rules:
 - sortYear must be a number: negative for BCE, positive for CE
 - Details should be substantive, 3-5 paragraphs of educational content
 - Tags should use kebab-case and be thematic (e.g., "philosophy", "political-change", "scientific-discovery")
+- relatedTopics: 4-5 topics closely related to this one that a learner might explore next
 - Always return ONLY the JSON object`;
 
+// ── Timeline routes ────────────────────────────────────────────────────────
+
+// Public browse endpoint — serves cached timelines only, no auth required
+app.get('/api/timeline/browse', async (req, res) => {
+  const { topic, startYear, endYear } = req.query as { topic?: string; startYear?: string; endYear?: string };
+  if (!topic || !startYear || !endYear) {
+    res.status(400).json({ error: 'Missing required params: topic, startYear, endYear' });
+    return;
+  }
+  if (USE_STUB) {
+    res.json({ cached: true, timeline: STUB_TIMELINE });
+    return;
+  }
+  const cached = await getCached(topic, startYear, endYear);
+  if (cached) {
+    res.json({ cached: true, timeline: cached });
+  } else {
+    res.status(404).json({ cached: false });
+  }
+});
+
+// Authenticated generate endpoint — generates if not cached
 app.post('/api/timeline', auth, async (req, res) => {
   const authReq = req as AuthRequest;
   const { topic, startYear, endYear } = req.body as { topic: string; startYear: string; endYear: string };
@@ -122,7 +153,6 @@ app.post('/api/timeline', auth, async (req, res) => {
     return;
   }
 
-  // Rate limit check (skip in stub mode)
   if (!USE_STUB) {
     const { allowed, remaining } = await checkAndIncrementRateLimit(authReq.user!.id);
     if (!allowed) {
@@ -137,13 +167,10 @@ app.post('/api/timeline', auth, async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const send = (data: object) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   send({ type: 'status', message: `Researching "${topic}" from ${startYear} to ${endYear}…` });
 
-  // Stub mode: return pre-built data instantly, no API call
   if (USE_STUB) {
     await new Promise(r => setTimeout(r, 400));
     send({ type: 'complete', timeline: STUB_TIMELINE });
@@ -151,37 +178,26 @@ app.post('/api/timeline', auth, async (req, res) => {
     return;
   }
 
-  // Cache check — return instantly if we've generated this timeline before
   const cached = await getCached(topic, startYear, endYear);
   if (cached) {
-    console.log(`[cache] Hit for "${topic}"`);
     send({ type: 'status', message: 'Loading from cache…' });
     await new Promise(r => setTimeout(r, 300));
     send({ type: 'complete', timeline: cached });
+    // Award XP for viewing
+    void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);
     res.end();
     return;
   }
 
-  console.log(`[timeline] Cache miss — generating for "${topic}" ${startYear}–${endYear}`);
-  console.log(`[timeline] API key present: ${!!process.env.ANTHROPIC_API_KEY}`);
-
-  // Abort controller for timeout
   const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    console.log('[timeline] Timeout triggered after 90s');
-    controller.abort();
-  }, 90_000);
+  const timeout = setTimeout(() => controller.abort(), 90_000);
 
   try {
-    console.log('[timeline] Starting Claude stream...');
     const stream = getAnthropicClient().messages.stream({
       model: 'claude-haiku-4-5',
       max_tokens: 8192,
       system: SYSTEM_PROMPT,
-      messages: [{
-        role: 'user',
-        content: `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.`
-      }]
+      messages: [{ role: 'user', content: `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.` }],
     }, { signal: controller.signal });
 
     let fullText = '';
@@ -194,7 +210,6 @@ app.post('/api/timeline', auth, async (req, res) => {
       'Finalizing timeline…',
     ];
 
-    console.log('[timeline] Stream started, waiting for events...');
     for await (const event of stream) {
       if (event.type === 'content_block_start') {
         if (event.content_block.type === 'thinking') {
@@ -203,60 +218,46 @@ app.post('/api/timeline', auth, async (req, res) => {
           send({ type: 'status', message: statusMessages[statusPhase % statusMessages.length] });
           statusPhase++;
         }
-      } else if (event.type === 'content_block_delta') {
-        if (event.delta.type === 'text_delta') {
-          fullText += event.delta.text;
-          // Send incremental status updates
-          if (fullText.length % 1000 < 20 && statusPhase < statusMessages.length) {
-            send({ type: 'status', message: statusMessages[statusPhase % statusMessages.length] });
-            statusPhase++;
-          }
+      } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullText += event.delta.text;
+        if (fullText.length % 1000 < 20 && statusPhase < statusMessages.length) {
+          send({ type: 'status', message: statusMessages[statusPhase % statusMessages.length] });
+          statusPhase++;
         }
       }
     }
 
-    // Strip markdown code fences if present (e.g. ```json ... ```)
     const stripped = fullText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-
-    // Extract the JSON object
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('[timeline] Raw response:', fullText.slice(0, 500));
-      throw new Error('Could not find JSON in response. The model may not have followed formatting instructions.');
-    }
+    if (!jsonMatch) throw new Error('Could not find JSON in response.');
 
     let jsonStr = jsonMatch[0];
-
-    // If JSON appears truncated, try to close it gracefully
-    let timeline;
+    let timeline: TimelineData;
     try {
-      timeline = JSON.parse(jsonStr);
+      timeline = JSON.parse(jsonStr) as TimelineData;
     } catch {
-      // Attempt to salvage truncated JSON by closing open structures
       const openBraces = (jsonStr.match(/\{/g) ?? []).length - (jsonStr.match(/\}/g) ?? []).length;
       const openBrackets = (jsonStr.match(/\[/g) ?? []).length - (jsonStr.match(/\]/g) ?? []).length;
       jsonStr += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
-      try {
-        timeline = JSON.parse(jsonStr);
-      } catch {
-        console.error('[timeline] Could not parse even after repair. Raw:', fullText.slice(0, 500));
-        throw new Error('Response was incomplete or malformed. Try a shorter time range.');
-      }
+      timeline = JSON.parse(jsonStr) as TimelineData;
     }
 
-    // Ensure events are sorted by sortYear
     if (timeline.events && Array.isArray(timeline.events)) {
       timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
         (a.sortYear ?? 0) - (b.sortYear ?? 0)
       );
     }
 
-    // Store in cache for future requests
     await setCached(topic, startYear, endYear, timeline);
-
     send({ type: 'complete', timeline });
+
+    // Award XP for generating a new timeline
+    void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);
+
+    // Generate quiz questions in background (don't block response)
+    void generateQuizAndCache(topic, startYear, endYear, timeline);
+
   } catch (error) {
-    console.error('[timeline] Error:', error);
     let message = error instanceof Error ? error.message : 'An unknown error occurred';
     if (message.includes('abort') || message.includes('AbortError')) {
       message = 'Request timed out after 90 seconds. Try a narrower time range.';
@@ -266,47 +267,179 @@ app.post('/api/timeline', auth, async (req, res) => {
     send({ type: 'error', message });
   } finally {
     clearTimeout(timeout);
+    res.end();
   }
-
-  res.end();
 });
 
-// SPA fallback
-app.get('*', (_req, res) => {
-  const indexPath = path.join(__dirname, '../../client/dist/index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) res.status(404).send('Not found');
+async function generateQuizAndCache(topic: string, startYear: string, endYear: string, timeline: TimelineData) {
+  const existing = await getCachedQuiz(topic, startYear, endYear);
+  if (existing && existing.length >= 5) return;
+  const questions = await generateQuizQuestions(getAnthropicClient(), timeline);
+  if (questions.length > 0) {
+    await setCachedQuiz(topic, startYear, endYear, questions);
+    console.log(`[quiz] Cached ${questions.length} questions for "${topic}"`);
+  }
+}
+
+// ── Quiz routes ────────────────────────────────────────────────────────────
+
+app.get('/api/quiz', optAuth, async (req, res) => {
+  const { topic, startYear, endYear } = req.query as { topic?: string; startYear?: string; endYear?: string };
+  if (!topic || !startYear || !endYear) {
+    res.status(400).json({ error: 'Missing required params' });
+    return;
+  }
+
+  let questions = await getCachedQuiz(topic, startYear, endYear);
+
+  if (!questions || questions.length < 5) {
+    // Try to generate on-demand if timeline exists
+    const timeline = await getCached(topic, startYear, endYear);
+    if (!timeline) { res.status(404).json({ error: 'No timeline cached for this topic. View it first.' }); return; }
+    questions = await generateQuizQuestions(getAnthropicClient(), timeline);
+    if (questions.length > 0) await setCachedQuiz(topic, startYear, endYear, questions);
+  }
+
+  if (!questions || questions.length === 0) {
+    res.status(404).json({ error: 'Could not generate quiz questions for this topic.' });
+    return;
+  }
+
+  res.json({ questions: pickRandomQuestions(questions, 5) });
+});
+
+app.post('/api/quiz/complete', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const { score, total } = req.body as { score: number; total: number };
+  // Award full XP if 3+ correct out of 5 (60%), else half
+  const xpEarned = (score / total) >= 0.6 ? XP_REWARDS.COMPLETE_QUIZ : Math.floor(XP_REWARDS.COMPLETE_QUIZ / 2);
+  const user = await awardXP(authReq.user!.id, xpEarned);
+  res.json({ xpEarned, xp: user?.xp ?? 0, level: user?.level ?? 1 });
+});
+
+// ── User profile & gamification ────────────────────────────────────────────
+
+app.get('/api/user/profile', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const user = await findUser(authReq.user!.id);
+  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+  res.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    picture: user.picture,
+    xp: user.xp ?? 0,
+    level: user.level ?? 1,
+    activeTheme: user.activeTheme ?? 'midnight',
+    unlockedThemes: user.unlockedThemes ?? ['midnight'],
   });
 });
 
-// ── Startup: load secrets first, then configure auth, then listen ──────────
+app.post('/api/user/theme', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const { themeId } = req.body as { themeId: string };
+  const user = await setActiveTheme(authReq.user!.id, themeId);
+  if (!user) { res.status(400).json({ error: 'Theme not unlocked or user not found' }); return; }
+  res.json({ ok: true, activeTheme: user.activeTheme });
+});
+
+// ── Marketplace ────────────────────────────────────────────────────────────
+
+app.get('/api/marketplace/themes', optAuth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const unlockedThemes = authReq.user
+    ? (await findUser(authReq.user.id))?.unlockedThemes ?? ['midnight']
+    : ['midnight'];
+
+  res.json(THEMES.map(t => ({ ...t, unlocked: unlockedThemes.includes(t.id) })));
+});
+
+app.post('/api/marketplace/unlock/:themeId', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const themeId = req.params.themeId as string;
+  const valid = THEMES.some(t => t.id === themeId);
+  if (!valid) { res.status(400).json({ error: 'Unknown theme' }); return; }
+  const user = await unlockTheme(authReq.user!.id, themeId);
+  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+  res.json({ ok: true, unlockedThemes: user.unlockedThemes });
+});
+
+// ── Saved timelines ────────────────────────────────────────────────────────
+
+app.get('/api/saved', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const saved = await getSavedTimelines(authReq.user!.id);
+  res.json(saved);
+});
+
+app.post('/api/saved', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const { topic, startYear, endYear, title, description, collectionName } = req.body as {
+    topic: string; startYear: string; endYear: string;
+    title: string; description: string; collectionName?: string;
+  };
+  if (!topic || !startYear || !endYear || !title) {
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+  const item = await saveTimeline(authReq.user!.id, {
+    topic, startYear, endYear, title, description,
+    collectionName: collectionName ?? 'General',
+  });
+  void awardXP(authReq.user!.id, XP_REWARDS.SAVE_TIMELINE);
+  res.status(201).json(item);
+});
+
+app.delete('/api/saved/:id', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const ok = await deleteSavedTimeline(authReq.user!.id, req.params.id as string);
+  if (!ok) { res.status(404).json({ error: 'Not found' }); return; }
+  res.json({ ok: true });
+});
+
+// ── Custom topics ──────────────────────────────────────────────────────────
+
+app.get('/api/topics/custom', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  res.json(await getCustomTopics(authReq.user!.id));
+});
+
+app.post('/api/topics/custom', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const { name, icon, items } = req.body as { name: string; icon?: string; items: Array<{ label: string; topic: string; start: string; end: string }> };
+  if (!name || !items?.length) { res.status(400).json({ error: 'name and items are required' }); return; }
+  const topic = await saveCustomTopic(authReq.user!.id, { name, icon: icon ?? '📌', items });
+  res.status(201).json(topic);
+});
+
+app.delete('/api/topics/custom/:id', auth, async (req, res) => {
+  const authReq = req as AuthRequest;
+  const ok = await deleteCustomTopic(authReq.user!.id, req.params.id as string);
+  if (!ok) { res.status(404).json({ error: 'Not found' }); return; }
+  res.json({ ok: true });
+});
+
+// ── SPA fallback ───────────────────────────────────────────────────────────
+
+app.get('*', (_req, res) => {
+  const indexPath = path.join(clientDistPath, 'index.html');
+  res.sendFile(indexPath, (err) => { if (err) res.status(404).send('Not found'); });
+});
+
+// ── Startup ────────────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT ?? 3001;
 
 async function start() {
   console.log('[startup] Loading secrets...');
-  try {
-    await loadSecrets();
-  } catch (err) {
-    console.error('[startup] loadSecrets failed:', err);
-    // Non-fatal — continue with env vars
-  }
-  console.log('[startup] Configuring passport...');
+  try { await loadSecrets(); } catch (err) { console.error('[startup] loadSecrets failed:', err); }
   configurePassport();
-  initCache();         // Passport Google strategy (needs secrets ready)
+  initCache();
 
-  if (!getSecret('anthropic-api-key')) {
-    console.warn('[warn] anthropic-api-key not set — timeline generation will fail');
-  }
-  if (!getSecret('google-client-id')) {
-    console.warn('[warn] google-client-id not set — Google login will not work');
-  }
+  if (!getSecret('anthropic-api-key')) console.warn('[warn] anthropic-api-key not set');
+  if (!getSecret('google-client-id')) console.warn('[warn] google-client-id not set');
 
-  app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`Timeline server running at http://localhost:${PORT}`);
-  });
+  app.listen(Number(PORT), '0.0.0.0', () => console.log(`Timeline server running at http://localhost:${PORT}`));
 }
 
-start().catch(err => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+start().catch(err => { console.error('Failed to start server:', err); process.exit(1); });
