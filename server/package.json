@@ -6,7 +6,9 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "echo 'JS already compiled by CI'",
-    "compile": "tsc"
+    "compile": "tsc",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -31,7 +33,11 @@
     "@types/node": "^22.10.5",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/supertest": "^7.2.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
   }
 }
