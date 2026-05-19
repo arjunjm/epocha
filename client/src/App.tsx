@@ -22,7 +22,6 @@ export default function App() {
   const { user, loading: authLoading, signIn, signOut, refresh } = useAuth();
   const { history, push: pushHistory } = useHistory();
   const { save: saveSession, clear: clearSession } = useSession();
-  const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
   const [timeline, setTimeline] = useState<TimelineData | null>(null);
   const [sessionRestored, setSessionRestored] = useState(false);
   const [status, setStatus] = useState<AppStatus>({ loading: false });
@@ -32,6 +31,7 @@ export default function App() {
   const [pendingTopic, setPendingTopic] = useState<{ topic: string; start: string; end: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [streamingMeta, setStreamingMeta] = useState<{ topic: string; period: string; description: string } | null>(null);
+  const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Apply theme from user profile
   useEffect(() => {
