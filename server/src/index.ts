@@ -196,7 +196,7 @@ app.post('/api/timeline', auth, async (req, res) => {
     const stream = getAnthropicClient().messages.stream({
       model: 'claude-haiku-4-5',
       max_tokens: 8192,
-      system: SYSTEM_PROMPT,
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.` }],
     }, { signal: controller.signal });
 

@@ -6,6 +6,7 @@ import AuthButton from './components/AuthButton';
 import ProfileBadge from './components/ProfileBadge';
 import Marketplace from './components/Marketplace';
 import SavedTimelines from './components/SavedTimelines';
+import Discover from './components/Discover';
 import { useAuth } from './hooks/useAuth';
 import type { TimelineData, AppStatus, AppPage } from './types';
 
@@ -26,6 +27,17 @@ export default function App() {
     applyTheme(theme);
   }, [user?.activeTheme]);
 
+  // On mount: load timeline from URL params if present
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const topic = params.get('topic');
+    const startYear = params.get('start');
+    const endYear = params.get('end');
+    if (topic && startYear && endYear) {
+      void handleBrowse(topic, startYear, endYear);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const applyTheme = (themeId: string) => {
     document.documentElement.setAttribute('data-theme', themeId);
     localStorage.setItem('epocha-theme', themeId);
@@ -45,6 +57,7 @@ export default function App() {
         const data = await res.json() as { cached: boolean; timeline: TimelineData };
         setTimeline(data.timeline);
         setStatus({ loading: false });
+        pushTimelineUrl(topic, startYear, endYear);
         return;
       }
       // Not cached — need auth to generate
@@ -98,6 +111,7 @@ export default function App() {
             } else if (data.type === 'complete' && data.timeline) {
               setTimeline(data.timeline);
               setStatus({ loading: false });
+              pushTimelineUrl(topic, startYear, endYear);
               void refresh();
             } else if (data.type === 'error' && data.message) {
               throw new Error(data.message);
@@ -121,10 +135,16 @@ export default function App() {
     }
   }, [user]);
 
+  const pushTimelineUrl = (topic: string, startYear: string, endYear: string) => {
+    const params = new URLSearchParams({ topic, start: startYear, end: endYear });
+    window.history.replaceState(null, '', `?${params}`);
+  };
+
   const handleReset = () => {
     setTimeline(null);
     setActiveTopic(undefined);
     setStatus({ loading: false });
+    window.history.replaceState(null, '', '/');
   };
 
   const handleRelatedSelect = (topic: string) => {
@@ -168,7 +188,13 @@ export default function App() {
               </button>
             )}
 
-            {/* Nav links */}
+            {/* Nav links — Discover is public; others require login */}
+            <button
+              onClick={() => { setPage('discover'); setTimeline(null); setStatus({ loading: false }); }}
+              className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'discover' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+            >
+              Discover
+            </button>
             {user && (
               <>
                 <button
@@ -207,6 +233,11 @@ export default function App() {
 
       {/* Main content */}
       <main className="pt-[52px] lg:pl-64 min-h-screen">
+
+        {/* Discover page — public */}
+        {page === 'discover' && (
+          <Discover onSelect={(topic, s, e) => { setPage('home'); void handleBrowse(topic, s, e); }} />
+        )}
 
         {/* Marketplace page */}
         {page === 'marketplace' && (

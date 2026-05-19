@@ -41,7 +41,7 @@ export async function generateQuizQuestions(
     const response = await client.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 4096,
-      system: QUIZ_PROMPT,
+      system: [{ type: 'text', text: QUIZ_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages: [{
         role: 'user',
         content: `Generate 12 quiz questions for this timeline:\n${JSON.stringify(timelineSummary, null, 2)}`,
