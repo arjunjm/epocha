@@ -1,0 +1,3 @@
+$schema: https://azuremlschemas.azureedge.net/latest/serverlessEndpoint.schema.json
+name: claude-haiku-epocha
+model_id: azureml://registries/azureml-anthropic/models/claude-haiku-4-5

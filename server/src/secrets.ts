@@ -32,6 +32,10 @@ const SECRET_NAMES = [
   'cosmos-endpoint',
   'cosmos-key',
   'redis-url',
+  'llm-provider',
+  'azure-openai-endpoint',
+  'azure-openai-key',
+  'azure-openai-deployment',
 ];
 
 export async function loadSecrets(): Promise<void> {

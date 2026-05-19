@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { streamGenerate } from './llm.js';
 import type { TimelineData, QuizQuestion } from './types.js';
 
 const QUIZ_PROMPT = `You are creating a multiple-choice quiz about a historical timeline.
@@ -22,7 +23,7 @@ Rules:
 - Keep questions concise and clear`;
 
 export async function generateQuizQuestions(
-  client: Anthropic,
+  _client: Anthropic,
   timeline: TimelineData
 ): Promise<QuizQuestion[]> {
   const timelineSummary = {
@@ -38,17 +39,12 @@ export async function generateQuizQuestions(
   };
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4096,
-      system: [{ type: 'text', text: QUIZ_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages: [{
-        role: 'user',
-        content: `Generate 12 quiz questions for this timeline:\n${JSON.stringify(timelineSummary, null, 2)}`,
-      }],
-    });
+    const text = await streamGenerate(
+      QUIZ_PROMPT,
+      `Generate 12 quiz questions for this timeline:\n${JSON.stringify(timelineSummary, null, 2)}`,
+      {}
+    );
 
-    const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];

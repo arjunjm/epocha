@@ -21,6 +21,7 @@
     "express": "^4.21.2",
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
+    "openai": "^6.38.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0"
   },
