@@ -122,6 +122,18 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         <h2 className="font-serif text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">{data.topic}</h2>
         <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed mb-6">{data.description}</p>
 
+        {/* Reading stats */}
+        {(() => {
+          const wordCount = data.events.reduce((n, e) => n + e.details.split(/\s+/).length + e.summary.split(/\s+/).length, 0);
+          const mins = Math.max(1, Math.round(wordCount / 200));
+          const tagCount = new Set(data.events.flatMap(e => e.tags ?? [])).size;
+          return (
+            <p className="text-slate-600 text-xs mb-4">
+              ~{mins} min read · {total} events{tagCount > 0 ? ` · ${tagCount} themes` : ''}
+            </p>
+          );
+        })()}
+
         {/* Action bar */}
         <div className="inline-flex flex-wrap items-center justify-center gap-2">
           <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">

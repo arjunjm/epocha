@@ -9,6 +9,7 @@ import Marketplace from './components/Marketplace';
 import SavedTimelines from './components/SavedTimelines';
 import Discover from './components/Discover';
 import Spotlight from './components/Spotlight';
+import TimelineSkeleton from './components/TimelineSkeleton';
 import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
 import type { TimelineData, AppStatus, AppPage } from './types';
@@ -25,6 +26,7 @@ export default function App() {
   const [page, setPage] = useState<AppPage>('home');
   const [pendingTopic, setPendingTopic] = useState<{ topic: string; start: string; end: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [streamingMeta, setStreamingMeta] = useState<{ topic: string; period: string; description: string } | null>(null);
 
   // Apply theme from user profile
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function App() {
     if (!user) { setPendingTopic({ topic, start: startYear, end: endYear }); signIn(); return; }
     setStatus({ loading: true, message: `Researching "${topic}"…` });
     setTimeline(null);
+    setStreamingMeta(null);
     setActiveTopic(topic);
     setPage('home');
 
@@ -111,11 +114,15 @@ export default function App() {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
-            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData };
+            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string };
             if (data.type === 'status' && data.message) {
               setStatus({ loading: true, message: data.message });
+            } else if (data.type === 'meta' && data.topic) {
+              setStreamingMeta({ topic: data.topic, period: data.period ?? '', description: data.description ?? '' });
+              setStatus({ loading: true, message: 'Building timeline events…' });
             } else if (data.type === 'complete' && data.timeline) {
               setTimeline(data.timeline);
+              setStreamingMeta(null);
               setStatus({ loading: false });
               pushTimelineUrl(topic, startYear, endYear);
               pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
@@ -149,6 +156,7 @@ export default function App() {
 
   const handleReset = () => {
     setTimeline(null);
+    setStreamingMeta(null);
     setActiveTopic(undefined);
     setStatus({ loading: false });
     window.history.replaceState(null, '', '/');
@@ -331,8 +339,19 @@ export default function App() {
               </div>
             )}
 
-            {/* Loading */}
-            {isLoading && (
+            {/* Streaming skeleton — shows header + skeleton cards while events generate */}
+            {isLoading && streamingMeta && (
+              <div className="max-w-4xl mx-auto px-5 pb-24">
+                <TimelineSkeleton
+                  topic={streamingMeta.topic}
+                  period={streamingMeta.period}
+                  description={streamingMeta.description}
+                />
+              </div>
+            )}
+
+            {/* Full-page spinner — only shown before meta arrives */}
+            {isLoading && !streamingMeta && (
               <div className="min-h-[calc(100vh-52px)] flex flex-col items-center justify-center px-5 fade-up">
                 <div className="relative w-20 h-20 mb-8">
                   <div className="absolute inset-0 rounded-full border-2 border-amber-500/20" />

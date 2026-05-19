@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { TOPIC_TAXONOMY } from '../data/topics';
 
 interface Props {
   onSubmit: (topic: string, startYear: string, endYear: string) => void;
@@ -31,12 +32,19 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
         <input
           id="topic"
           type="text"
+          list="topic-suggestions"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="e.g., History of Western Philosophy"
           className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 outline-none text-white placeholder:text-slate-600 transition-all text-sm"
           required
+          autoComplete="off"
         />
+        <datalist id="topic-suggestions">
+          {TOPIC_TAXONOMY.flatMap(cat => cat.items).map(item => (
+            <option key={item.topic} value={item.topic} />
+          ))}
+        </datalist>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
