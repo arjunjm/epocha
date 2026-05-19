@@ -22,6 +22,9 @@ var appSvcPlanName = 'plan-${suffix}'
 var appSvcName    = 'app-${suffix}'
 var cosmosName    = 'cosmos-epocha-${environment}'  // deployed manually to westus2 due to eastus capacity
 var redisName     = 'redis-${suffix}'
+var funcStorageName = replace('st${suffix}', '-', '')  // storage account: no dashes, max 24 chars
+var funcPlanName  = 'funcplan-${suffix}'
+var funcAppName   = 'func-${suffix}'
 
 // ── Key Vault ─────────────────────────────────────────────────────────────
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -209,9 +212,59 @@ resource secretCosmosKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 }
 
 // ── Outputs (used in CI/CD and local dev setup) ───────────────────────────
+// ── Azure Function App (background pre-generation) ────────────────────────
+
+resource funcStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: funcStorageName
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }   // cheapest storage tier
+  properties: { minimumTlsVersion: 'TLS1_2' }
+}
+
+resource funcPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
+  name: funcPlanName
+  location: location
+  sku: { name: 'Y1', tier: 'Dynamic' }   // Consumption plan — pay only when running
+  properties: { reserved: true }
+}
+
+resource funcApp 'Microsoft.Web/sites@2023-12-01' = {
+  name: funcAppName
+  location: location
+  kind: 'functionapp,linux'
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    serverFarmId: funcPlan.id
+    httpsOnly: true
+    siteConfig: {
+      linuxFxVersion: 'NODE|20'
+      appSettings: [
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${funcStorage.listKeys().keys[0].value};EndpointSuffix=core.windows.net' }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'node' }
+        { name: 'KEY_VAULT_URL', value: keyVault.properties.vaultUri }
+      ]
+    }
+  }
+}
+
+// Grant Function App Managed Identity read access to Key Vault
+resource funcKvRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, funcApp.id, '4633458b-17de-408a-b874-0445c86b69e6')
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: funcApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ── Outputs ────────────────────────────────────────────────────────────────
 output keyVaultUrl string = keyVault.properties.vaultUri
 output appServiceName string = appService.name
 output appServiceUrl string = 'https://${appService.properties.defaultHostName}'
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output redisCacheHostName string = redisCache.properties.hostName
 output appServicePrincipalId string = appService.identity.principalId
+output functionAppName string = funcApp.name

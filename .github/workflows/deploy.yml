@@ -10,6 +10,7 @@ on:
 env:
   NODE_VERSION: '20'
   AZURE_WEBAPP_NAME: app-timelineapp-dev
+  AZURE_FUNC_NAME: func-timelineapp-dev
 
 jobs:
   build:
@@ -93,3 +94,34 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: deploy/
+
+  deploy-functions:
+    name: Deploy Azure Functions
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install function dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Build functions (TypeScript → JS)
+        working-directory: functions
+        run: npx tsc
+
+      - name: Deploy to Azure Functions
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNC_NAME }}
+          package: functions/
+          publish-profile: ${{ secrets.AZURE_FUNC_PUBLISH_PROFILE }}

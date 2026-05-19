@@ -22,14 +22,14 @@
 - [x] Azure Key Vault integration — secrets loaded at startup via DefaultAzureCredential (Managed Identity in prod, az login locally)
 
 ## Background Data & Pre-generation
-- [ ] Background job (Azure Function or equivalent) to pre-generate and cache timelines for popular topics
-- [ ] Store pre-generated timelines in cache/persistent storage so they load instantly
+- [x] Background job (Azure Function) to pre-generate and cache timelines for popular topics — timer trigger at 2AM UTC daily + HTTP trigger for manual seeding
+- [x] Store pre-generated timelines in Redis so they load instantly for all users
 
 ## Infrastructure & Deployment
-- [ ] GitHub Actions CI/CD pipeline
+- [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to main (.github/workflows/deploy.yml)
 - [ ] Deploy to Azure Service Fabric
-- [ ] Full CI/CD pipeline: test → build → deploy on merge to main
-- [x] Bicep file for all Azure resource provisioning (infra/main.bicep — Key Vault, App Service, Cosmos DB serverless, Redis C0)
+- [x] Full CI/CD pipeline: build → deploy on merge to main
+- [x] Bicep file for all Azure resource provisioning (infra/main.bicep — Key Vault, App Service B1, Cosmos DB serverless, Redis C0, Function App consumption plan)
 
 ---
 
