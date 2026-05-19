@@ -51,6 +51,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [compact, setCompact] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
@@ -58,7 +60,10 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     onReset:   onReset,
     onCompact: () => setCompact(c => !c),
     onHelp:    () => setShowHelp(h => !h),
-    onEscape:  () => { setShowQuiz(false); setShowHelp(false); setShowSaveForm(false); },
+    onEscape:  () => {
+      setShowQuiz(false); setShowHelp(false); setShowSaveForm(false);
+      setShowSearch(false); setSearchQuery('');
+    },
   }, true);
 
   const allTags = Array.from(new Set(data.events.flatMap(e => e.tags ?? []))).sort();
@@ -71,9 +76,19 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     });
   };
 
-  const visibleEvents = activeTags.size === 0
+  const q = searchQuery.trim().toLowerCase();
+  const tagFiltered = activeTags.size === 0
     ? data.events
     : data.events.filter(e => e.tags?.some(t => activeTags.has(t)));
+  const visibleEvents = q === ''
+    ? tagFiltered
+    : tagFiltered.filter(e =>
+        e.title.toLowerCase().includes(q) ||
+        e.summary.toLowerCase().includes(q) ||
+        e.significance.toLowerCase().includes(q) ||
+        e.figures?.some(f => f.toLowerCase().includes(q)) ||
+        e.location?.toLowerCase().includes(q)
+      );
 
   const topicParts = data.period.split(' to ');
   const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
@@ -158,6 +173,13 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             </span>
           )}
           <button
+            onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery(''); }}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${showSearch ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
+            title="Search events"
+          >
+            🔍 Search
+          </button>
+          <button
             onClick={() => setCompact(c => !c)}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${compact ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
             title="Toggle compact view (C)"
@@ -212,6 +234,38 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           </div>
         )}
         {saveError && <p className="mt-2 text-red-400 text-xs">{saveError}</p>}
+
+        {/* Social share */}
+        <div className="mt-4 flex justify-center gap-2 print:hidden">
+          <SocialShareButtons topic={data.topic} period={data.period} />
+        </div>
+
+        {/* Event search */}
+        {showSearch && (
+          <div className="mt-4 fade-up flex justify-center">
+            <div className="relative w-full max-w-sm">
+              <input
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search events…"
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/15 focus:border-amber-500/50 text-slate-200 text-sm placeholder-slate-600 outline-none transition-colors"
+              />
+              <svg className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-slate-600 hover:text-slate-300 text-xs transition-colors">×</button>
+              )}
+            </div>
+          </div>
+        )}
+        {q && (
+          <p className="mt-1.5 text-xs text-slate-600 text-center">
+            {visibleEvents.length} of {data.events.length} events matching &ldquo;{q}&rdquo;
+          </p>
+        )}
 
         {/* Tag filter */}
         {allTags.length > 0 && (
@@ -361,6 +415,41 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         />
       )}
     </div>
+  );
+}
+
+function SocialShareButtons({ topic, period }: { topic: string; period: string }) {
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent(`Exploring "${topic}" (${period}) on Epocha — fascinating historical timeline!`);
+  return (
+    <>
+      <a
+        href={`https://twitter.com/intent/tweet?text=${text}&url=${url}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium text-slate-500 border border-white/8 hover:border-white/20 hover:text-slate-300 transition-all"
+        title="Share on X (Twitter)"
+        onClick={e => e.stopPropagation()}
+      >
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.736-8.849L1.254 2.25H8.08l4.259 5.631 5.905-5.631zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+        Share
+      </a>
+      <a
+        href={`https://www.linkedin.com/sharing/share-offsite/?url=${url}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium text-slate-500 border border-white/8 hover:border-white/20 hover:text-slate-300 transition-all"
+        title="Share on LinkedIn"
+        onClick={e => e.stopPropagation()}
+      >
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+        </svg>
+        Share
+      </a>
+    </>
   );
 }
 
