@@ -61,10 +61,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     onEscape:  () => { setShowQuiz(false); setShowHelp(false); setShowSaveForm(false); },
   }, true);
 
-  // Collect all unique tags across events
-  const allTags = Array.from(
-    new Set(data.events.flatMap(e => e.tags ?? []))
-  ).sort();
+  const allTags = Array.from(new Set(data.events.flatMap(e => e.tags ?? []))).sort();
 
   const toggleTag = (tag: string) => {
     setActiveTags(prev => {
@@ -78,7 +75,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     ? data.events
     : data.events.filter(e => e.tags?.some(t => activeTags.has(t)));
 
-  // Extract topic/period info for quiz and save
   const topicParts = data.period.split(' to ');
   const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
   const endYear = topicParts[1]?.replace(/\D/g, '') ?? '9999';
@@ -93,9 +89,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: data.topic,
-          startYear,
-          endYear,
+          topic: data.topic, startYear, endYear,
           title: data.topic,
           description: data.description.slice(0, 200),
           collectionName,
@@ -152,6 +146,13 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             </span>
           )}
           <button
+            onClick={() => setCompact(c => !c)}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${compact ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
+            title="Toggle compact view (C)"
+          >
+            {compact ? '⊞ Full' : '≡ Compact'}
+          </button>
+          <button
             onClick={() => void handleCopyLink()}
             className="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border border-white/10 hover:border-white/20 hover:text-white text-slate-400"
           >
@@ -162,13 +163,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
           >
             📄 Export PDF
-          </button>
-          <button
-            onClick={() => setCompact(c => !c)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${compact ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
-            title="Toggle compact view (C)"
-          >
-            {compact ? '⊞ Full' : '≡ Compact'}
           </button>
           <button
             onClick={onReset}
@@ -250,12 +244,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         )}
       </div>
 
-      {/* Timeline events */}
+      {/* Timeline events — compact or full view */}
       {compact ? (
-<<<<<<< HEAD
-        /* ── Compact list view ──────────────────────────────────────────── */
-        <div className="space-y-1 py-4">
-=======
         <div className="space-y-1 py-4">
           {visibleEvents.map((event, index) => {
             const { gradient } = getGradient(index, visibleEvents.length);
@@ -263,29 +253,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           })}
         </div>
       ) : (
-      <div className="relative">
-        <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
-
-        <div className="space-y-6 lg:space-y-0">
->>>>>>> c694e1e (feat: OG meta tags, recently viewed history, keyboard shortcuts + compact view)
-          {visibleEvents.map((event, index) => {
-            const { gradient } = getGradient(index, visibleEvents.length);
-            return (
-              <CompactRow key={`${event.date}-${index}`} event={event} gradient={gradient} index={index} />
-            );
-          })}
-        </div>
-<<<<<<< HEAD
-      ) : (
-        /* ── Full alternating view ──────────────────────────────────────── */
         <div className="relative">
           <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
-
           <div className="space-y-6 lg:space-y-0">
             {visibleEvents.map((event, index) => {
               const { gradient, glow } = getGradient(index, visibleEvents.length);
               const isLeft = index % 2 === 0;
-
               return (
                 <div
                   key={`${event.date}-${index}`}
@@ -330,10 +303,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           </div>
         </div>
       )}
-=======
-      </div>
-      )} {/* end compact/full branch */}
->>>>>>> c694e1e (feat: OG meta tags, recently viewed history, keyboard shortcuts + compact view)
 
       {/* Related Topics */}
       {data.relatedTopics && data.relatedTopics.length > 0 && onRelatedSelect && (
@@ -368,10 +337,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         </button>
       </div>
 
-      {/* Keyboard help modal */}
       {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
 
-      {/* Quiz modal */}
       {showQuiz && (
         <QuizModal
           topic={data.topic}
@@ -396,20 +363,12 @@ function DatePill({ date, gradient }: { date: string; gradient: string }) {
 function CompactRow({ event, gradient, index }: { event: import('../types').TimelineEvent; gradient: string; index: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
-<<<<<<< HEAD
-    <div className="fade-up" style={{ animationDelay: `${index * 30}ms` }}>
-=======
     <div className="fade-up" style={{ animationDelay: `${index * 25}ms` }}>
->>>>>>> c694e1e (feat: OG meta tags, recently viewed history, keyboard shortcuts + compact view)
       <button
         onClick={() => setExpanded(e => !e)}
         className="w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-white/4 transition-colors group"
       >
-<<<<<<< HEAD
-        <div className={`mt-0.5 flex-shrink-0 w-2 h-2 rounded-full bg-gradient-to-br ${gradient} ring-1 ring-white/10`} />
-=======
         <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 bg-gradient-to-br ${gradient}`} />
->>>>>>> c694e1e (feat: OG meta tags, recently viewed history, keyboard shortcuts + compact view)
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className={`text-[10px] font-bold bg-gradient-to-r ${gradient} bg-clip-text text-transparent whitespace-nowrap`}>
@@ -418,13 +377,7 @@ function CompactRow({ event, gradient, index }: { event: import('../types').Time
             <span className="text-slate-200 text-sm font-medium leading-snug group-hover:text-white transition-colors">
               {event.title}
             </span>
-<<<<<<< HEAD
-            {event.location && (
-              <span className="text-slate-700 text-[10px] hidden sm:inline">· {event.location}</span>
-            )}
-=======
             {event.location && <span className="text-slate-700 text-[10px] hidden sm:inline">· {event.location}</span>}
->>>>>>> c694e1e (feat: OG meta tags, recently viewed history, keyboard shortcuts + compact view)
           </div>
           {event.tags && event.tags.length > 0 && (
             <div className="flex gap-1 mt-1 flex-wrap">
@@ -434,19 +387,10 @@ function CompactRow({ event, gradient, index }: { event: import('../types').Time
             </div>
           )}
         </div>
-<<<<<<< HEAD
-        <span className="text-slate-700 text-xs flex-shrink-0 group-hover:text-slate-500 transition-colors mt-0.5">
-          {expanded ? '▲' : '▼'}
-        </span>
-      </button>
-      {expanded && (
-        <div className="mx-3 mb-2 p-3 rounded-xl bg-white/3 border border-white/5 text-slate-400 text-xs leading-relaxed card-details">
-=======
         <span className="text-slate-700 text-xs flex-shrink-0 group-hover:text-slate-500 mt-0.5">{expanded ? '▲' : '▼'}</span>
       </button>
       {expanded && (
         <div className="mx-3 mb-2 p-3 rounded-xl bg-white/3 border border-white/5 text-xs leading-relaxed card-details">
->>>>>>> c694e1e (feat: OG meta tags, recently viewed history, keyboard shortcuts + compact view)
           <p className="text-white/80 font-medium mb-1">{event.summary}</p>
           <p className="text-slate-500 line-clamp-3">{event.significance}</p>
           {event.figures && event.figures.length > 0 && (
