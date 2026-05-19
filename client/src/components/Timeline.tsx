@@ -2,6 +2,7 @@ import { useState } from 'react';
 import EventCard from './EventCard';
 import QuizModal from './QuizModal';
 import KeyboardHelp from './KeyboardHelp';
+import TimeMachine from './TimeMachine';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
@@ -52,6 +53,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [compact, setCompact] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [timeMachine, setTimeMachine] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
@@ -202,6 +204,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
           <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
             {total} events
           </span>
+          <button
+            onClick={() => setTimeMachine(true)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 transition-colors"
+          >
+            🕰 Time Machine
+          </button>
           <button
             onClick={() => setShowQuiz(true)}
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
@@ -479,6 +487,14 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
       </div>
 
       {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
+
+      {timeMachine && (
+        <TimeMachine
+          events={visibleEvents}
+          topic={data.topic}
+          onClose={() => setTimeMachine(false)}
+        />
+      )}
 
       {showQuiz && (
         <QuizModal
