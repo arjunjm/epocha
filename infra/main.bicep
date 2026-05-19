@@ -20,7 +20,7 @@ var suffix        = '${appName}-${environment}'
 var kvName        = 'kv-${suffix}'           // max 24 chars
 var appSvcPlanName = 'plan-${suffix}'
 var appSvcName    = 'app-${suffix}'
-var cosmosName    = 'cosmos-${suffix}'
+var cosmosName    = 'cosmos-epocha-${environment}'  // deployed manually to westus2 due to eastus capacity
 var redisName     = 'redis-${suffix}'
 
 // ── Key Vault ─────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: '10'
         }
       ]
-      startupCommand: 'node dist/index.js'
+      appCommandLine: 'node dist/index.js'
     }
   }
 }

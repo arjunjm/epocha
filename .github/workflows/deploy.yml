@@ -1,0 +1,95 @@
+name: Build and Deploy — Epocha
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  AZURE_WEBAPP_NAME: app-timelineapp-dev
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Server ─────────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Build server (TypeScript → JS)
+        working-directory: server
+        run: npx tsc
+
+      # ── Client ─────────────────────────────────────────────────────────
+      - name: Install client dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client deps
+        working-directory: client
+        run: npm ci
+
+      - name: Build client (Vite)
+        working-directory: client
+        run: npm run build
+
+      # ── Package ────────────────────────────────────────────────────────
+      - name: Assemble deployment artifact
+        run: |
+          mkdir -p deploy/client
+          cp -r server/dist deploy/
+          cp server/package.json deploy/
+          cp server/package-lock.json deploy/
+          cp -r client/dist deploy/client/
+
+      - name: Install production dependencies (Linux)
+        working-directory: deploy
+        run: npm ci --omit=dev
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: epocha-app
+          path: deploy/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: epocha-app
+          path: deploy/
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy/
