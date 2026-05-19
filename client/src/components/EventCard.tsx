@@ -34,9 +34,21 @@ function formatEventText(event: TimelineEvent): string {
   return lines.filter(l => l !== undefined).join('\n').trim();
 }
 
+const TAGS_PREF_KEY = 'epocha-tags-expanded';
+
 export default function EventCard({ event, gradient, align, defaultExpanded = false }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(() => {
+    try { return localStorage.getItem(TAGS_PREF_KEY) === 'true'; } catch { return false; }
+  });
+
+  const toggleTags = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !tagsOpen;
+    setTagsOpen(next);
+    try { localStorage.setItem(TAGS_PREF_KEY, String(next)); } catch { /* ignore */ }
+  };
 
   const paragraphs = event.details
     .split(/\n\n+/)
@@ -83,17 +95,35 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
           {event.summary}
         </p>
 
-        {/* Tags */}
+        {/* Tags — collapsed by default, preference persisted */}
         {event.tags && event.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {event.tags.map((tag, i) => (
-              <span
-                key={tag}
-                className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${TAG_STYLES[i % TAG_STYLES.length]}`}
+          <div>
+            {tagsOpen ? (
+              <div className="flex flex-wrap gap-1.5">
+                {event.tags.map((tag, i) => (
+                  <span
+                    key={tag}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${TAG_STYLES[i % TAG_STYLES.length]}`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+                <button
+                  onClick={toggleTags}
+                  className="px-2 py-0.5 rounded-full text-[10px] text-slate-600 hover:text-slate-400 border border-white/8 hover:border-white/15 transition-colors"
+                >
+                  hide
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={toggleTags}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium text-slate-600 border border-white/8 hover:border-white/15 hover:text-slate-400 transition-colors"
               >
-                {tag}
-              </span>
-            ))}
+                <span className="text-[9px]">🏷</span>
+                {event.tags.length} tag{event.tags.length !== 1 ? 's' : ''}
+              </button>
+            )}
           </div>
         )}
       </div>

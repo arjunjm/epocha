@@ -25,9 +25,9 @@ describe('ProfileBadge', () => {
     expect(screen.getByText(/Lv\.2/i)).toBeInTheDocument();
   });
 
-  it('displays XP', () => {
+  it('displays XP in the title tooltip', () => {
     render(<ProfileBadge user={makeUser({ xp: 250 })} onClick={vi.fn()} />);
-    expect(screen.getByText(/250 XP/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/250 XP/i)).toBeInTheDocument();
   });
 
   it('shows first letter of name when no picture', () => {
