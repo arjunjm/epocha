@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
   AZURE_WEBAPP_NAME: app-timelineapp-dev
   AZURE_FUNC_NAME: func-timelineapp-dev
 
