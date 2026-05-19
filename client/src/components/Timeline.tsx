@@ -45,6 +45,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [quizResult, setQuizResult] = useState<{ score: number; total: number; xpEarned: number } | null>(null);
   const [collectionName, setCollectionName] = useState('General');
   const [showSaveForm, setShowSaveForm] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Extract topic/period info for quiz and save
   const topicParts = data.period.split(' to ');
@@ -75,8 +76,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     setSaving(false);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = () => { window.print(); };
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleQuizComplete = (score: number, total: number, xpEarned: number) => {
@@ -115,6 +120,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
               ✓ Saved
             </span>
           )}
+          <button
+            onClick={() => void handleCopyLink()}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border border-white/10 hover:border-white/20 hover:text-white text-slate-400"
+          >
+            {copied ? '✓ Copied!' : '🔗 Share'}
+          </button>
           <button
             onClick={handlePrint}
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"

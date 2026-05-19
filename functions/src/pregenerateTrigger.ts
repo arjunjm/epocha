@@ -44,7 +44,7 @@ async function generateTimeline(client: Anthropic, job: TopicJob): Promise<strin
   const stream = client.messages.stream({
     model: 'claude-haiku-4-5',
     max_tokens: 8192,
-    system: SYSTEM_PROMPT,
+    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
     messages: [{
       role: 'user',
       content: `Generate a detailed timeline for: "${job.topic}"\nTime period: ${job.startYear} to ${job.endYear}\n\nReturn only the JSON object.`
@@ -93,9 +93,7 @@ async function generateAndCacheQuiz(client: Anthropic, redis: Redis, timelineJso
   const response = await client.messages.create({
     model: 'claude-haiku-4-5',
     max_tokens: 4096,
-    system: `You are creating a multiple-choice quiz about a historical timeline.
-Generate exactly 12 multiple-choice questions. Return ONLY a valid JSON array:
-[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]`,
+    system: [{ type: 'text', text: `You are creating a multiple-choice quiz about a historical timeline.\nGenerate exactly 12 multiple-choice questions. Return ONLY a valid JSON array:\n[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]`, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: `Generate 12 quiz questions for:\n${JSON.stringify(summary)}` }],
   });
 

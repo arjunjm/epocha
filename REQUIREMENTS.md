@@ -59,6 +59,22 @@
 
 ---
 
+## Token & Cost Optimisation
+- [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
+
+## Discovery & Sharing
+- [x] Shareable timeline URLs — topic/start/end encoded in query params; URL updates on load; auto-loads on page open; "Share" button copies link to clipboard
+- [x] Discover page — visual grid of all built-in topics grouped by category with search + filter; publicly accessible (no login required)
+
+## Infrastructure & Deployment
+- [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
+- [ ] Deploy to Azure Service Fabric
+- [x] Full CI/CD pipeline: build → deploy on merge to master
+- [x] Bicep file for all Azure resource provisioning (infra/main.bicep — Key Vault, App Service B1, Cosmos DB serverless, Redis C0, Function App consumption plan)
+- [x] Function App deployment via run-from-package blob upload (bypasses Kudu 503 on Linux Consumption Plan)
+
+---
+
 ## Notes
 - Azure subscription has ~$150/month credit; keep infrastructure choices economical
 - Prefer managed/serverless Azure services where possible to minimise idle cost
