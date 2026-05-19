@@ -176,11 +176,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
     toast.xp(`+${xpEarned} XP`, `Quiz: ${score}/${total} correct`);
   };
 
-  const handleSaveWithToast = async () => {
-    await handleSave();
-    // handleSave sets saved=true on success; toast fires after
-  };
-
   return (
     <div className="timeline-print-container">
       {/* Header */}
