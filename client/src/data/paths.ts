@@ -80,7 +80,7 @@ export const LEARNING_PATHS: LearningPath[] = [
   {
     id: 'exploration',
     title: 'Exploration & Discovery',
-    description: 'Humanity's drive to venture into the unknown — from ocean voyages to outer space.',
+    description: "Humanity's drive to venture into the unknown — from ocean voyages to outer space.",
     icon: '🧭',
     color: 'from-teal-900/40 to-cyan-900/40',
     accentColor: 'text-teal-400',
