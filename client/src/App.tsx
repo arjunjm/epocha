@@ -467,6 +467,7 @@ export default function App() {
                   data={timeline}
                   onReset={handleReset}
                   onRelatedSelect={handleRelatedSelect}
+                  onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
                   user={user}
                   onSignIn={signIn}
                 />

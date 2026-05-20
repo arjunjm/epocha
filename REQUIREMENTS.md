@@ -108,6 +108,7 @@
 - [x] Personal Event Notes — per-event text notes in localStorage; "My Notes" textarea in expanded event view; auto-saved on keystroke; 📝 indicator on collapsed cards that have notes; notes included in Markdown export
 - [x] Reading Progress Tracker — expanding an event marks it as "read" (persisted in localStorage per topic); progress bar and "N / total read" counter appear in the timeline header after the first read; ✓ indicator on collapsed read cards; turns green with "✓ All read" when complete
 - [x] Event Density Heatmap — "🗺 Density" toggle in action bar shows a heatmap grid bucketing events by era (auto-sized buckets: year/decade/century/millennium based on span); colour intensity reflects event count; hover cell shows event list; click event title to scroll to it
+- [x] Continue Exploring / Next Era — "Next Era →" button at timeline footer pre-fills and loads the same topic for the immediately following time period (same span); seamlessly chains consecutive eras without returning to the home screen
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

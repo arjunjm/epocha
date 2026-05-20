@@ -18,6 +18,7 @@ interface Props {
   data: TimelineData;
   onReset: () => void;
   onRelatedSelect?: (topic: string) => void;
+  onContinue?: (topic: string, start: string, end: string) => void;
   user?: AuthUser | null;
   onSignIn?: () => void;
 }
@@ -46,7 +47,7 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, onReset, onRelatedSelect, user, onSignIn }: Props) {
+export default function Timeline({ data, onReset, onRelatedSelect, onContinue, user, onSignIn }: Props) {
   const total = data.events.length;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -122,6 +123,14 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const topicParts = data.period.split(' to ');
   const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
   const endYear = topicParts[1]?.replace(/\D/g, '') ?? '9999';
+
+  const nextEraPeriod = (() => {
+    const s = parseInt(startYear, 10);
+    const e = parseInt(endYear, 10);
+    if (isNaN(s) || isNaN(e) || e >= 2100) return null;
+    const span = Math.max(10, e - s);
+    return { start: String(e), end: String(e + span) };
+  })();
 
   const handleSave = async () => {
     if (!user) { onSignIn?.(); return; }
@@ -602,6 +611,21 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
       <div className="mt-10 text-center fade-up">
         <div className="inline-block w-px h-12 bg-gradient-to-b from-white/20 to-transparent mb-6" />
         <p className="text-slate-600 text-xs uppercase tracking-widest">End of timeline</p>
+
+        {/* Next Era continuation */}
+        {onContinue && nextEraPeriod && (
+          <div className="mt-6 mb-2 print:hidden">
+            <p className="text-slate-600 text-xs mb-3">Keep the story going</p>
+            <button
+              onClick={() => onContinue(data.topic, nextEraPeriod.start, nextEraPeriod.end)}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-white/5 border border-white/15 text-slate-300 hover:bg-white/10 hover:text-white hover:border-white/25 transition-all"
+            >
+              {data.topic} · {nextEraPeriod.start}–{nextEraPeriod.end}
+              <span className="text-slate-500">→</span>
+            </button>
+          </div>
+        )}
+
         <button
           onClick={onReset}
           className="mt-8 px-8 py-3 rounded-xl text-sm font-semibold text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 transition-all shadow-lg shadow-amber-500/20 print:hidden"
