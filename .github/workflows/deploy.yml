@@ -106,7 +106,7 @@ jobs:
         with:
           name: epocha-app
           path: deploy/
-          retention-days: 1
+          retention-days: 7
 
   deploy:
     name: Deploy to Azure
@@ -218,6 +218,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name != 'pull_request'
+    outputs:
+      should_rollback: ${{ steps.threshold.outputs.should_rollback }}
+      failed: ${{ steps.threshold.outputs.failed }}
+      total: ${{ steps.threshold.outputs.total }}
 
     steps:
       - uses: actions/checkout@v4
@@ -233,7 +237,7 @@ jobs:
         working-directory: tests/smoke
         run: npm install
 
-      - name: Wait for app to be ready
+      - name: Wait for app to be ready (JSON health check)
         run: |
           for i in $(seq 1 24); do
             BODY=$(curl -s https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/api/health)
@@ -245,8 +249,132 @@ jobs:
             sleep 10
           done
 
-      - name: Run smoke tests
+      - name: Run smoke tests (continue on failure to capture results)
+        id: run_smoke
+        continue-on-error: true
         working-directory: tests/smoke
         env:
           SMOKE_BASE_URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
         run: npm test
+
+      - name: Evaluate failure threshold (rollback if ≥20% fail)
+        id: threshold
+        working-directory: tests/smoke
+        run: |
+          if [ ! -f results.json ]; then
+            echo "results.json not found — treating as total failure"
+            echo "should_rollback=true" >> $GITHUB_OUTPUT
+            echo "failed=unknown" >> $GITHUB_OUTPUT
+            echo "total=unknown" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          TOTAL=$(jq '.numTotalTests // 0' results.json)
+          FAILED=$(jq '.numFailedTests // 0' results.json)
+          echo "Smoke results: $FAILED failed out of $TOTAL total"
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No tests ran — treating as total failure"
+            echo "should_rollback=true" >> $GITHUB_OUTPUT
+          elif [ "$(echo "$FAILED * 100 / $TOTAL >= 20" | bc)" -eq 1 ]; then
+            echo "Failure rate $(( FAILED * 100 / TOTAL ))% ≥ 20% threshold — ROLLBACK"
+            echo "should_rollback=true" >> $GITHUB_OUTPUT
+          else
+            echo "Failure rate $(( FAILED * 100 / TOTAL ))% < 20% threshold — OK"
+            echo "should_rollback=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ── Mark this run as last-known-good after smoke passes ──────────────────
+
+  mark-stable:
+    name: Mark stable build
+    runs-on: ubuntu-latest
+    needs: smoke
+    if: needs.smoke.outputs.should_rollback == 'false'
+    steps:
+      - name: Store stable run ID in Azure Blob Storage
+        env:
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          echo '${{ github.run_id }}' > stable-run-id.txt
+          az storage blob upload \
+            --account-name "sttimelineappdev" \
+            --account-key "$AZURE_STORAGE_KEY" \
+            --container-name "app-releases" \
+            --name "stable/stable-run-id.txt" \
+            --file stable-run-id.txt \
+            --overwrite
+          echo "Marked run ${{ github.run_id }} (sha ${{ github.sha }}) as stable"
+
+  # ── Rollback to last-known-good if smoke threshold exceeded ──────────────
+
+  rollback:
+    name: Rollback to last stable build
+    runs-on: ubuntu-latest
+    needs: smoke
+    if: needs.smoke.outputs.should_rollback == 'true'
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - name: Fetch last stable run ID from Azure Blob Storage
+        id: fetch_stable
+        env:
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          az storage blob download \
+            --account-name "sttimelineappdev" \
+            --account-key "$AZURE_STORAGE_KEY" \
+            --container-name "app-releases" \
+            --name "stable/stable-run-id.txt" \
+            --file stable-run-id.txt 2>/dev/null || echo "no-stable" > stable-run-id.txt
+          STABLE_RUN=$(cat stable-run-id.txt | tr -d '[:space:]')
+          echo "stable_run=$STABLE_RUN" >> $GITHUB_OUTPUT
+          echo "Last stable run: $STABLE_RUN"
+
+      - name: Download last stable artifact
+        if: steps.fetch_stable.outputs.stable_run != 'no-stable'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download ${{ steps.fetch_stable.outputs.stable_run }} \
+            -n epocha-app \
+            -D rollback-deploy/ \
+            --repo ${{ github.repository }}
+
+      - name: Deploy last stable build to Azure App Service
+        if: steps.fetch_stable.outputs.stable_run != 'no-stable'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: rollback-deploy/
+
+      - name: Create GitHub issue documenting the rollback
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FAILED="${{ needs.smoke.outputs.failed }}"
+          TOTAL="${{ needs.smoke.outputs.total }}"
+          STABLE="${{ steps.fetch_stable.outputs.stable_run }}"
+          RATE="$([[ "$TOTAL" != "0" && "$TOTAL" != "unknown" ]] && echo "$(( ${FAILED:-0} * 100 / ${TOTAL:-1} ))%" || echo "unknown")"
+
+          gh issue create \
+            --title "Auto-rollback: smoke tests failed on ${{ github.sha }}" \
+            --label "bug" \
+            --body "## Automatic Rollback
+
+          Smoke tests exceeded the 20% failure threshold on commit \`${{ github.sha }}\`.
+
+          | | Value |
+          |---|---|
+          | Failed tests | $FAILED / $TOTAL ($RATE failure rate) |
+          | Trigger commit | [\`${{ github.sha }}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |
+          | Failed run | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+          | Rolled back to run | $STABLE |
+
+          **Action required:** Investigate the failing smoke tests in the run above, fix the regression, and push a new commit." \
+            --repo ${{ github.repository }}
