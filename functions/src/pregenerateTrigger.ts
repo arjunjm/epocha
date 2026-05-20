@@ -286,10 +286,19 @@ async function buildJobQueue(redis: Redis, log: (m: string) => void): Promise<To
 
 // ── Shared run logic ───────────────────────────────────────────────────────
 
+const ADMIN_LOG_KEY = 'epocha:admin:job-log';
+const ADMIN_RUNNING_KEY = 'epocha:admin:running';
+const ADMIN_LOG_MAX = 500;
+
+function ts(): string {
+  return new Date().toISOString().slice(11, 19);
+}
+
 async function runPreGeneration(
   overrideJobs: TopicJob[] | null,
   log: (m: string) => void,
-  warn: (m: string) => void
+  warn: (m: string) => void,
+  forceRegenerate = false
 ) {
   await loadSecrets();
   anthropic = null; azure = null;
@@ -302,48 +311,72 @@ async function runPreGeneration(
 
   const redis = new Redis(redisUrl, { tls: redisUrl.startsWith('rediss://') ? {} : undefined, connectTimeout: 5000, maxRetriesPerRequest: 2 });
 
-  const jobs = overrideJobs ?? await buildJobQueue(redis, log);
-
-  let generated = 0, skipped = 0, failed = 0;
-
-  for (const job of jobs) {
-    const key = cacheKey(job.topic, job.startYear, job.endYear);
+  const rlog = async (msg: string) => {
+    log(msg);
     try {
-      const ttl = await redis.ttl(key);
-      if (ttl > 86400) { skipped++; log(`Skipped (fresh): ${job.topic}`); continue; }
+      await redis.rpush(ADMIN_LOG_KEY, `[${ts()}] ${msg}`);
+      await redis.ltrim(ADMIN_LOG_KEY, -ADMIN_LOG_MAX, -1);
+    } catch { /* non-critical */ }
+  };
 
-      log(`Generating: ${job.topic}${job.startYear ? ` (${job.startYear}–${job.endYear})` : ''}`);
-      const result = await generateTimeline(job);
+  try {
+    await redis.setex(ADMIN_RUNNING_KEY, 3600, '1');
 
-      if (result) {
-        await redis.setex(key, TTL, result);
-        // Index in trending sorted set for sidebar display
-        const parsed = JSON.parse(result) as { period?: string };
-        const meta = JSON.stringify({ topic: job.topic, startYear: job.startYear, endYear: job.endYear, period: parsed.period ?? '' });
-        void redis.zadd('epocha:trending-topics', Date.now(), meta)
-          .then(() => redis.zremrangebyrank('epocha:trending-topics', 0, -51));
-        generated++;
-        log(`Cached: ${job.topic}`);
-        try {
-          const quizKey = `quiz:${key}`;
-          if (await redis.ttl(quizKey) <= 86400) {
-            const quiz = await generateQuiz(result);
-            if (quiz) { await redis.setex(quizKey, TTL, quiz); }
+    const jobs = overrideJobs ?? await buildJobQueue(redis, m => { void rlog(m); });
+
+    let generated = 0, skipped = 0, failed = 0;
+
+    for (const job of jobs) {
+      const key = cacheKey(job.topic, job.startYear, job.endYear);
+      try {
+        if (!forceRegenerate) {
+          const ttl = await redis.ttl(key);
+          if (ttl > 86400) {
+            skipped++;
+            void rlog(`Skipped (fresh, ${Math.round(ttl / 3600)}h left): ${job.topic}`);
+            continue;
           }
-        } catch (qErr) { warn(`Quiz failed for ${job.topic}: ${qErr}`); }
-      } else {
-        failed++;
-        warn(`Failed (incomplete): ${job.topic}`);
-      }
-      await new Promise(r => setTimeout(r, 2000));
-    } catch (err) {
-      failed++;
-      warn(`Error: ${job.topic}: ${err}`);
-    }
-  }
+        } else {
+          // Force regenerate: delete existing cache entry so fresh data is written
+          await redis.del(key);
+        }
 
-  redis.disconnect();
-  log(`Complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`);
+        void rlog(`Generating: ${job.topic}${job.startYear ? ` (${job.startYear}–${job.endYear})` : ''}`);
+        const result = await generateTimeline(job);
+
+        if (result) {
+          await redis.setex(key, TTL, result);
+          // Index in trending sorted set for sidebar display
+          const parsed = JSON.parse(result) as { period?: string };
+          const meta = JSON.stringify({ topic: job.topic, startYear: job.startYear, endYear: job.endYear, period: parsed.period ?? '' });
+          void redis.zadd('epocha:trending-topics', Date.now(), meta)
+            .then(() => redis.zremrangebyrank('epocha:trending-topics', 0, -51));
+          generated++;
+          void rlog(`Cached: ${job.topic}`);
+          try {
+            const quizKey = `quiz:${key}`;
+            if (forceRegenerate || await redis.ttl(quizKey) <= 86400) {
+              if (forceRegenerate) await redis.del(quizKey);
+              const quiz = await generateQuiz(result);
+              if (quiz) { await redis.setex(quizKey, TTL, quiz); }
+            }
+          } catch (qErr) { void rlog(`Quiz failed for ${job.topic}: ${qErr}`); }
+        } else {
+          failed++;
+          void rlog(`Failed (incomplete response): ${job.topic}`);
+        }
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (err) {
+        failed++;
+        void rlog(`Error: ${job.topic}: ${err}`);
+      }
+    }
+
+    void rlog(`Complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`);
+  } finally {
+    await redis.del(ADMIN_RUNNING_KEY);
+    redis.disconnect();
+  }
 }
 
 // ── Triggers ───────────────────────────────────────────────────────────────
@@ -359,29 +392,32 @@ app.timer('pregenerateTimelines', {
 
 app.http('pregenerateManual', {
   methods: ['POST'],
-  authLevel: 'function',
+  authLevel: 'anonymous',
   handler: async (request, ctx) => {
     ctx.log('Manual pre-generation triggered');
     const body = await request.json().catch(() => ({}) as Record<string, unknown>);
-    const topicFilter = (body as { topics?: string[] }).topics;
+    const { topics: topicFilter, forceRegenerate = false } = body as { topics?: string[]; forceRegenerate?: boolean };
     const overrideJobs = topicFilter
       ? ALL_TOPICS.filter(j => topicFilter.includes(j.topic))
       : null; // null = use full dynamic queue
 
     const jobCount = overrideJobs?.length ?? MAX_JOBS;
-    ctx.log(`Queued up to ${jobCount} topics`);
-    void runPreGeneration(overrideJobs, m => ctx.log(m), m => ctx.warn(m));
+    ctx.log(`Queued up to ${jobCount} topics (forceRegenerate=${forceRegenerate})`);
+    void runPreGeneration(overrideJobs, m => ctx.log(m), m => ctx.warn(m), forceRegenerate);
 
-    return { status: 202, jsonBody: { message: `Pre-generation started`, mode: topicFilter ? 'filtered' : 'full-dynamic-queue' } };
+    return { status: 202, jsonBody: { message: `Pre-generation started`, mode: topicFilter ? 'filtered' : 'full-dynamic-queue', forceRegenerate } };
   },
 });
 
 // On-demand trigger: fetch trending current events from LLM and generate timelines
 app.http('generateTrendingEvents', {
   methods: ['POST'],
-  authLevel: 'function',
-  handler: async (_request, ctx) => {
+  authLevel: 'anonymous',
+  handler: async (request, ctx) => {
     ctx.log('Generating trending current events...');
+    const body = await request.json().catch(() => ({}) as Record<string, unknown>);
+    const { forceRegenerate = false } = body as { forceRegenerate?: boolean };
+
     await loadSecrets();
     anthropic = null; azure = null;
 
@@ -396,13 +432,14 @@ app.http('generateTrendingEvents', {
 
     ctx.log(`Queued ${jobs.length} trending topics: ${jobs.map(j => j.topic).join(', ')}`);
 
-    void runPreGeneration(jobs, m => ctx.log(m), m => ctx.warn(m));
+    void runPreGeneration(jobs, m => ctx.log(m), m => ctx.warn(m), forceRegenerate);
 
     return {
       status: 202,
       jsonBody: {
         message: `Generating ${jobs.length} trending current event timelines`,
         topics: jobs.map(j => j.topic),
+        forceRegenerate,
       },
     };
   },

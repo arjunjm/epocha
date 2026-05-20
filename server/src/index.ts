@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -434,6 +434,53 @@ app.delete('/api/topics/custom/:id', auth, ah(async (req, res) => {
   const ok = await deleteCustomTopic(authReq.user!.id, req.params.id as string);
   if (!ok) { res.status(404).json({ error: 'Not found' }); return; }
   res.json({ ok: true });
+}));
+
+// ── Admin routes (admin users only) ──────────────────────────────────────
+
+const adminAuth: express.RequestHandler = (req, res, next) => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user || !ADMIN_EMAILS.has(authReq.user.email ?? '')) {
+    res.status(403).json({ error: 'Admin access required' });
+    return;
+  }
+  next();
+};
+
+const FUNC_BASE_URL = `https://${process.env.AZURE_FUNC_NAME ?? 'func-timelineapp-dev'}.azurewebsites.net/api`;
+
+// Job log + running status
+app.get('/api/admin/status', auth, adminAuth, ah(async (_req, res) => {
+  const [running, logs] = await Promise.all([isAdminRunning(), getAdminLog(300)]);
+  res.json({ running, logs });
+}));
+
+app.delete('/api/admin/logs', auth, adminAuth, ah(async (_req, res) => {
+  await clearAdminLog();
+  res.json({ ok: true });
+}));
+
+// Trigger Azure Functions (fire-and-forget, returns 202 from function)
+app.post('/api/admin/trigger/trending', auth, adminAuth, ah(async (req, res) => {
+  const { forceRegenerate = false } = req.body as { forceRegenerate?: boolean };
+  const response = await fetch(`${FUNC_BASE_URL}/generateTrendingEvents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ forceRegenerate }),
+  });
+  const body = await response.json() as Record<string, unknown>;
+  res.status(response.status).json(body);
+}));
+
+app.post('/api/admin/trigger/pregenerate', auth, adminAuth, ah(async (req, res) => {
+  const { forceRegenerate = false } = req.body as { forceRegenerate?: boolean };
+  const response = await fetch(`${FUNC_BASE_URL}/pregenerateManual`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ forceRegenerate }),
+  });
+  const body = await response.json() as Record<string, unknown>;
+  res.status(response.status).json(body);
 }));
 
 // ── SPA fallback — with dynamic OG meta tags for shared timeline URLs ─────
