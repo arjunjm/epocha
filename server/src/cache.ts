@@ -193,3 +193,61 @@ export async function clearAdminLog(): Promise<void> {
   try { await redis.del(ADMIN_LOG_KEY); }
   catch { /* non-critical */ }
 }
+
+// ── Cache contents (admin view) ───────────────────────────────────────────
+
+export interface CacheEntry {
+  key: string;
+  topic: string;
+  startYear: string;
+  endYear: string;
+  ttlSeconds: number;
+  source: 'sidebar' | 'trending' | 'user';
+}
+
+export async function getCacheContents(): Promise<CacheEntry[]> {
+  if (!redis) return [];
+  try {
+    // SCAN for all timeline keys (non-blocking, cursor-based)
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, batch] = await redis.scan(cursor, 'MATCH', 'timeline:*', 'COUNT', 200);
+      cursor = next;
+      keys.push(...batch);
+    } while (cursor !== '0');
+
+    if (keys.length === 0) return [];
+
+    // Fetch TTLs in a single pipeline
+    const pipeline = redis.pipeline();
+    for (const k of keys) pipeline.ttl(k);
+    const results = await pipeline.exec();
+
+    return keys.map((key, i) => {
+      const ttl = (results?.[i]?.[1] as number) ?? -2;
+      // key format: timeline:<norm-topic>:<startYear>:<endYear>
+      const parts = key.split(':');
+      const normTopic = parts[1] ?? '';
+      const startYear = parts[2] ?? '';
+      const endYear = parts[3] ?? '';
+      // Reconstruct display-friendly topic name
+      const topic = normTopic.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+      // Classify source: empty years = trending/user search, known years = sidebar/pregenerated
+      const source: CacheEntry['source'] = (!startYear && !endYear) ? 'trending'
+        : DEFAULT_TOPICS.has(topic) ? 'sidebar'
+        : 'user';
+
+      return { key, topic, startYear, endYear, ttlSeconds: ttl, source };
+    }).sort((a, b) => a.topic.localeCompare(b.topic));
+  } catch { return []; }
+}
+
+export async function deleteCacheEntry(key: string): Promise<void> {
+  if (!redis) return;
+  // Safety: only allow deleting timeline keys
+  if (!key.startsWith('timeline:')) return;
+  try { await redis.del(key); }
+  catch { /* non-critical */ }
+}
