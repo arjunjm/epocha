@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AuthUser } from '../hooks/useAuth';
 import { LEVEL_THRESHOLDS, xpForNextLevel } from '../types';
+import { useCompletions } from '../hooks/useCompletions';
 
 interface Props {
   user: AuthUser;
@@ -73,6 +74,7 @@ function saveShowcase(ids: string[]) {
 }
 
 export default function ProfileModal({ user, onClose, onSignOut, onOpenMarketplace }: Props) {
+  const { completions } = useCompletions();
   const level = user.level ?? 1;
   const xp = user.xp ?? 0;
   const currentThreshold = LEVEL_THRESHOLDS[level - 1] ?? 0;
@@ -294,6 +296,24 @@ export default function ProfileModal({ user, onClose, onSignOut, onOpenMarketpla
             <div className="flex items-center gap-1.5"><span className={`font-bold ${label}`}>+50</span> Complete quiz</div>
             <div className="flex items-center gap-1.5"><span className={`font-bold ${label}`}>+5</span> Daily login</div>
           </div>
+
+          {/* ── Completed timelines ─────────────────────────────────────── */}
+          {completions.length > 0 && (
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2.5">
+                🎓 Completed · {completions.length}
+              </p>
+              <div className="space-y-1.5 max-h-28 overflow-y-auto">
+                {completions.map(c => (
+                  <div key={`${c.topic}-${c.period}`} className="flex items-center gap-2">
+                    <span className="text-emerald-500 text-[10px] flex-shrink-0">✓</span>
+                    <span className="text-slate-400 text-xs truncate">{c.topic}</span>
+                    <span className="text-slate-700 text-[10px] flex-shrink-0 ml-auto">{c.period}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={onSignOut}
