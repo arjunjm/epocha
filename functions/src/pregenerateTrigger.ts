@@ -109,10 +109,9 @@ async function generateTimeline(job: TopicJob): Promise<string | null> {
 
   try {
     const timeline = JSON.parse(jsonMatch[0]);
-    if (timeline.events && Array.isArray(timeline.events)) {
-      timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
-        (a.sortYear ?? 0) - (b.sortYear ?? 0));
-    }
+    if (!Array.isArray(timeline.events) || timeline.events.length < 5) return null;
+    timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
+      (a.sortYear ?? 0) - (b.sortYear ?? 0));
     return JSON.stringify(timeline);
   } catch { return null; }
 }

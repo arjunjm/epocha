@@ -218,11 +218,13 @@ app.post('/api/timeline', auth, async (req, res) => {
       timeline = JSON.parse(jsonStr) as TimelineData;
     }
 
-    if (timeline.events && Array.isArray(timeline.events)) {
-      timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
-        (a.sortYear ?? 0) - (b.sortYear ?? 0)
-      );
+    if (!Array.isArray(timeline.events) || timeline.events.length < 5) {
+      throw new Error(`Incomplete response — only ${timeline.events?.length ?? 0} events generated. Please try again.`);
     }
+
+    timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
+      (a.sortYear ?? 0) - (b.sortYear ?? 0)
+    );
 
     await setCached(topic, startYear, endYear, timeline);
     send({ type: 'complete', timeline });
