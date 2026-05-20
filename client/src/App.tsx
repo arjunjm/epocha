@@ -141,7 +141,15 @@ export default function App() {
         body: JSON.stringify({ topic, startYear, endYear }),
       });
 
-      if (!response.ok || !response.body) throw new Error(`Server error: ${response.status}`);
+      if (!response.ok) {
+        let message = `Something went wrong (${response.status})`;
+        try {
+          const body = await response.json() as { error?: string };
+          if (body.error) message = body.error;
+        } catch { /* use default */ }
+        throw new Error(message);
+      }
+      if (!response.body) throw new Error('No response from server');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
