@@ -645,7 +645,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                 >
                   {isLeft ? (
                     <>
-                      <div className="lg:text-right lg:pr-10">
+                      <div className="hidden lg:block lg:text-right lg:pr-10">
                         <EventCard event={event} gradient={gradient} glow={glow} align="right" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
@@ -663,7 +663,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                       <div className="hidden lg:flex items-start justify-end pr-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
                       </div>
-                      <div className="lg:pl-10">
+                      <div className="hidden lg:block lg:pl-10">
                         <EventCard event={event} gradient={gradient} glow={glow} align="left" defaultExpanded={false}
                           bookmarked={isBookmarked(data.topic, event)}
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
