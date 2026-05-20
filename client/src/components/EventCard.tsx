@@ -13,6 +13,8 @@ interface Props {
   onFigureClick?: (name: string) => void;
   activeFigure?: string | null;
   noteId?: string;
+  onExpand?: () => void;
+  isRead?: boolean;
 }
 
 const TAG_STYLES = [
@@ -42,7 +44,7 @@ function formatEventText(event: TimelineEvent): string {
 
 const TAGS_PREF_KEY = 'epocha-tags-expanded';
 
-export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure, noteId }: Props) {
+export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure, noteId, onExpand, isRead }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(() => {
@@ -73,8 +75,8 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
 
   return (
     <div
-      className={`group glass rounded-2xl overflow-hidden glass-hover cursor-pointer ${align === 'right' ? 'lg:text-left' : ''}`}
-      onClick={() => setExpanded(e => !e)}
+      className={`group glass rounded-2xl overflow-hidden glass-hover cursor-pointer ${align === 'right' ? 'lg:text-left' : ''} ${isRead ? 'opacity-90' : ''}`}
+      onClick={() => { if (!expanded) onExpand?.(); setExpanded(e => !e); }}
     >
       {/* Top accent bar */}
       <div className={`h-0.5 w-full bg-gradient-to-r ${gradient}`} />
@@ -86,6 +88,9 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
             {event.title}
           </h3>
           <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            {isRead && !expanded && (
+              <span className="text-emerald-700 text-[10px]" title="Read">✓</span>
+            )}
             {noteId && noteExists && !expanded && (
               <span className="text-[9px] text-emerald-600" title="Has notes">📝</span>
             )}

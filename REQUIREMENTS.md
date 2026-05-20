@@ -106,6 +106,7 @@
 - [x] Timeline Insights Panel — "📊 Insights" button opens a modal with computed analytics: events-by-century bar chart, top mentioned figures, top themes, key locations (all with proportional bars); summary stats row (total events, reading time, word count, location count)
 - [x] Key Figure Explorer — click any figure name in "Key Figures" to filter the entire timeline to events featuring that person; "Viewing history through [Name]" banner shows filtered count; active figure highlighted violet; click again or × to clear
 - [x] Personal Event Notes — per-event text notes in localStorage; "My Notes" textarea in expanded event view; auto-saved on keystroke; 📝 indicator on collapsed cards that have notes; notes included in Markdown export
+- [x] Reading Progress Tracker — expanding an event marks it as "read" (persisted in localStorage per topic); progress bar and "N / total read" counter appear in the timeline header after the first read; ✓ indicator on collapsed read cards; turns green with "✓ All read" when complete
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
