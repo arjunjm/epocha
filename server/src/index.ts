@@ -23,6 +23,10 @@ import type { AuthRequest } from './auth.js';
 const auth = requireAuth as express.RequestHandler;
 const optAuth = optionalAuth as express.RequestHandler;
 
+// Forward async route handler errors to Express error middleware (Express 4 doesn't do this automatically)
+const ah = (fn: express.RequestHandler): express.RequestHandler =>
+  (req, res, next) => { Promise.resolve(fn(req, res, next)).catch(next); };
+
 const USE_STUB = process.env.USE_STUB === 'true';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +44,12 @@ app.use(cookieParser());
 app.use(passport.initialize());
 app.use(express.static(clientDistPath));
 
+// ── Health check ──────────────────────────────────────────────────────────
+
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, timestamp: new Date().toISOString() });
+});
+
 // ── Auth routes ────────────────────────────────────────────────────────────
 
 app.get('/api/auth/google', passport.authenticate('google', { session: false }));
@@ -54,7 +64,7 @@ app.get('/api/auth/google/callback',
   }
 );
 
-app.get('/api/auth/me', auth, async (req, res) => {
+app.get('/api/auth/me', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const user = await findUser(authReq.user!.id);
   if (!user) { res.status(401).json({ error: 'User not found' }); return; }
@@ -77,7 +87,7 @@ app.get('/api/auth/me', auth, async (req, res) => {
     activeTheme: user.activeTheme ?? 'midnight',
     unlockedThemes: user.unlockedThemes ?? ['midnight'],
   });
-});
+}));
 
 app.post('/api/auth/logout', (req, res) => {
   clearAuthCookie(res);
@@ -119,13 +129,13 @@ Rules:
 // ── Timeline routes ────────────────────────────────────────────────────────
 
 // Public trending topics — topics pre-generated beyond the default sidebar list
-app.get('/api/timeline/trending', async (_req, res) => {
+app.get('/api/timeline/trending', ah(async (_req, res) => {
   const topics = await getTrendingTopics(20);
   res.json(topics);
-});
+}));
 
 // Public browse endpoint — serves cached timelines only, no auth required
-app.get('/api/timeline/browse', async (req, res) => {
+app.get('/api/timeline/browse', ah(async (req, res) => {
   const { topic, startYear, endYear } = req.query as { topic?: string; startYear?: string; endYear?: string };
   if (!topic || !startYear || !endYear) {
     res.status(400).json({ error: 'Missing required params: topic, startYear, endYear' });
@@ -141,10 +151,10 @@ app.get('/api/timeline/browse', async (req, res) => {
   } else {
     res.status(404).json({ cached: false });
   }
-});
+}));
 
 // Authenticated generate endpoint — generates if not cached
-app.post('/api/timeline', optAuth, async (req, res) => {
+app.post('/api/timeline', optAuth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const { topic, startYear: rawStart, endYear: rawEnd, publicBrowse, skipCache } =
     req.body as { topic: string; startYear?: string; endYear?: string; publicBrowse?: boolean; skipCache?: boolean };
@@ -276,7 +286,7 @@ app.post('/api/timeline', optAuth, async (req, res) => {
     clearTimeout(timeout);
     res.end();
   }
-});
+}));
 
 async function generateQuizAndCache(topic: string, startYear: string, endYear: string, timeline: TimelineData) {
   const existing = await getCachedQuiz(topic, startYear, endYear);
@@ -290,7 +300,7 @@ async function generateQuizAndCache(topic: string, startYear: string, endYear: s
 
 // ── Quiz routes ────────────────────────────────────────────────────────────
 
-app.get('/api/quiz', optAuth, async (req, res) => {
+app.get('/api/quiz', optAuth, ah(async (req, res) => {
   const { topic, startYear, endYear } = req.query as { topic?: string; startYear?: string; endYear?: string };
   if (!topic || !startYear || !endYear) {
     res.status(400).json({ error: 'Missing required params' });
@@ -313,20 +323,20 @@ app.get('/api/quiz', optAuth, async (req, res) => {
   }
 
   res.json({ questions: pickRandomQuestions(questions, 5) });
-});
+}));
 
-app.post('/api/quiz/complete', auth, async (req, res) => {
+app.post('/api/quiz/complete', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const { score, total } = req.body as { score: number; total: number };
   // Award full XP if 3+ correct out of 5 (60%), else half
   const xpEarned = (score / total) >= 0.6 ? XP_REWARDS.COMPLETE_QUIZ : Math.floor(XP_REWARDS.COMPLETE_QUIZ / 2);
   const user = await awardXP(authReq.user!.id, xpEarned);
   res.json({ xpEarned, xp: user?.xp ?? 0, level: user?.level ?? 1 });
-});
+}));
 
 // ── User profile & gamification ────────────────────────────────────────────
 
-app.get('/api/user/profile', auth, async (req, res) => {
+app.get('/api/user/profile', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const user = await findUser(authReq.user!.id);
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
@@ -340,28 +350,28 @@ app.get('/api/user/profile', auth, async (req, res) => {
     activeTheme: user.activeTheme ?? 'midnight',
     unlockedThemes: user.unlockedThemes ?? ['midnight'],
   });
-});
+}));
 
-app.post('/api/user/theme', auth, async (req, res) => {
+app.post('/api/user/theme', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const { themeId } = req.body as { themeId: string };
   const user = await setActiveTheme(authReq.user!.id, themeId);
   if (!user) { res.status(400).json({ error: 'Theme not unlocked or user not found' }); return; }
   res.json({ ok: true, activeTheme: user.activeTheme });
-});
+}));
 
 // ── Marketplace ────────────────────────────────────────────────────────────
 
-app.get('/api/marketplace/themes', optAuth, async (req, res) => {
+app.get('/api/marketplace/themes', optAuth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const unlockedThemes = authReq.user
     ? (await findUser(authReq.user.id))?.unlockedThemes ?? ['midnight']
     : ['midnight'];
 
   res.json(THEMES.map(t => ({ ...t, unlocked: unlockedThemes.includes(t.id) })));
-});
+}));
 
-app.post('/api/marketplace/unlock/:themeId', auth, async (req, res) => {
+app.post('/api/marketplace/unlock/:themeId', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const themeId = req.params.themeId as string;
   const valid = THEMES.some(t => t.id === themeId);
@@ -369,17 +379,17 @@ app.post('/api/marketplace/unlock/:themeId', auth, async (req, res) => {
   const user = await unlockTheme(authReq.user!.id, themeId);
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
   res.json({ ok: true, unlockedThemes: user.unlockedThemes });
-});
+}));
 
 // ── Saved timelines ────────────────────────────────────────────────────────
 
-app.get('/api/saved', auth, async (req, res) => {
+app.get('/api/saved', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const saved = await getSavedTimelines(authReq.user!.id);
   res.json(saved);
-});
+}));
 
-app.post('/api/saved', auth, async (req, res) => {
+app.post('/api/saved', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const { topic, startYear, endYear, title, description, collectionName } = req.body as {
     topic: string; startYear: string; endYear: string;
@@ -395,36 +405,36 @@ app.post('/api/saved', auth, async (req, res) => {
   });
   void awardXP(authReq.user!.id, XP_REWARDS.SAVE_TIMELINE);
   res.status(201).json(item);
-});
+}));
 
-app.delete('/api/saved/:id', auth, async (req, res) => {
+app.delete('/api/saved/:id', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const ok = await deleteSavedTimeline(authReq.user!.id, req.params.id as string);
   if (!ok) { res.status(404).json({ error: 'Not found' }); return; }
   res.json({ ok: true });
-});
+}));
 
 // ── Custom topics ──────────────────────────────────────────────────────────
 
-app.get('/api/topics/custom', auth, async (req, res) => {
+app.get('/api/topics/custom', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   res.json(await getCustomTopics(authReq.user!.id));
-});
+}));
 
-app.post('/api/topics/custom', auth, async (req, res) => {
+app.post('/api/topics/custom', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const { name, icon, items } = req.body as { name: string; icon?: string; items: Array<{ label: string; topic: string; start: string; end: string }> };
   if (!name || !items?.length) { res.status(400).json({ error: 'name and items are required' }); return; }
   const topic = await saveCustomTopic(authReq.user!.id, { name, icon: icon ?? '📌', items });
   res.status(201).json(topic);
-});
+}));
 
-app.delete('/api/topics/custom/:id', auth, async (req, res) => {
+app.delete('/api/topics/custom/:id', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
   const ok = await deleteCustomTopic(authReq.user!.id, req.params.id as string);
   if (!ok) { res.status(404).json({ error: 'Not found' }); return; }
   res.json({ ok: true });
-});
+}));
 
 // ── SPA fallback — with dynamic OG meta tags for shared timeline URLs ─────
 
@@ -455,7 +465,7 @@ function injectOgMeta(html: string, title: string, description: string): string 
     .replace('</head>', `    ${tags}\n  </head>`);
 }
 
-app.get('*', async (req, res) => {
+app.get('*', ah(async (req, res) => {
   const indexPath = path.join(clientDistPath, 'index.html');
   const html = getIndexHtml();
 
@@ -476,6 +486,17 @@ app.get('*', async (req, res) => {
   }
 
   res.sendFile(indexPath, (err) => { if (err) res.status(404).send('Not found'); });
+}));
+
+// ── Global error handler ──────────────────────────────────────────────────
+// Catches errors forwarded via next(err) — including passport done(err) on Cosmos DB failures
+
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const message = err instanceof Error ? err.message : 'Internal server error';
+  console.error('[error]', message, err instanceof Error ? err.stack : '');
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
 });
 
 // ── Startup ────────────────────────────────────────────────────────────────

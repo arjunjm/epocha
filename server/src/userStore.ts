@@ -68,9 +68,11 @@ function defaultUser(profile: { id: string; email: string; name: string; picture
 
 export async function findUser(id: string): Promise<User | null> {
   if (useCosmosDB()) {
-    const { users } = await getCosmosContainers();
-    try { const { resource } = await users.item(id, id).read<User>(); return resource ?? null; }
-    catch { return null; }
+    try {
+      const { users } = await getCosmosContainers();
+      const { resource } = await users.item(id, id).read<User>();
+      return resource ?? null;
+    } catch { return null; }
   }
   const all = await readJson<User>(LOCAL_DB_PATH);
   return all.find(u => u.id === id) ?? null;
@@ -78,9 +80,11 @@ export async function findUser(id: string): Promise<User | null> {
 
 export async function countUsers(): Promise<number> {
   if (useCosmosDB()) {
-    const { users } = await getCosmosContainers();
-    const { resources } = await users.items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
-    return (resources[0] as number) ?? 0;
+    try {
+      const { users } = await getCosmosContainers();
+      const { resources } = await users.items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
+      return (resources[0] as number) ?? 0;
+    } catch { return 0; }
   }
   return (await readJson<User>(LOCAL_DB_PATH)).length;
 }
@@ -89,7 +93,8 @@ export async function upsertUser(user: User): Promise<User> {
   if (useCosmosDB()) {
     const { users } = await getCosmosContainers();
     const { resource } = await users.items.upsert<User>(user);
-    return resource!;
+    if (!resource) throw new Error('Cosmos upsert returned no resource');
+    return resource;
   }
   const all = await readJson<User>(LOCAL_DB_PATH);
   const idx = all.findIndex(u => u.id === user.id);

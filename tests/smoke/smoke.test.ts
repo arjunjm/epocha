@@ -33,9 +33,12 @@ async function post(path: string, body: unknown) {
 // ── Health ─────────────────────────────────────────────────────────────────
 
 describe('health', () => {
-  it('GET /api/health returns 200', async () => {
+  it('GET /api/health returns 200 with JSON body', async () => {
     const res = await get('/api/health');
     expect(res.status).toBe(200);
+    const body = await res.json() as { ok: boolean; timestamp: string };
+    expect(body.ok).toBe(true);
+    expect(typeof body.timestamp).toBe('string');
   });
 });
 
