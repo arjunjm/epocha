@@ -26,13 +26,15 @@ export default function AuthButton({ user, loading, onSignIn, onSignOut }: Props
 
   return (
     <div className="flex items-center gap-2">
-      {/* Usage pill */}
-      <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-slate-400">
-        <span className={user.remaining === 0 ? 'text-red-400' : 'text-amber-400'}>
-          {user.remaining}/{user.dailyLimit}
-        </span>
-        <span>left today</span>
-      </div>
+      {/* Usage pill — hidden for admins (dailyLimit is null) */}
+      {user.dailyLimit != null && user.remaining != null && (
+        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-slate-400">
+          <span className={user.remaining === 0 ? 'text-red-400' : 'text-amber-400'}>
+            {user.remaining}/{user.dailyLimit}
+          </span>
+          <span>left today</span>
+        </div>
+      )}
 
       {/* Avatar + dropdown */}
       <div className="relative group">
@@ -55,17 +57,19 @@ export default function AuthButton({ user, loading, onSignIn, onSignOut }: Props
             <p className="text-xs font-semibold text-white truncate">{user.name}</p>
             <p className="text-xs text-slate-500 truncate">{user.email}</p>
           </div>
-          <div className="px-3 py-2 border-b border-white/5">
-            <p className="text-xs text-slate-500">
-              {user.dailyCount} of {user.dailyLimit} timelines used today
-            </p>
-            <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-amber-400 transition-all"
-                style={{ width: `${(user.dailyCount / user.dailyLimit) * 100}%` }}
-              />
+          {user.dailyLimit != null && (
+            <div className="px-3 py-2 border-b border-white/5">
+              <p className="text-xs text-slate-500">
+                {user.dailyCount} of {user.dailyLimit} timelines used today
+              </p>
+              <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-400 transition-all"
+                  style={{ width: `${(user.dailyCount / user.dailyLimit) * 100}%` }}
+                />
+              </div>
             </div>
-          </div>
+          )}
           <button
             onClick={onSignOut}
             className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-colors rounded-b-xl"
