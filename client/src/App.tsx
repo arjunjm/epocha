@@ -388,6 +388,7 @@ export default function App() {
           <>
             {/* Form / hero */}
             {!timeline && !isLoading && (
+              <>
               <div className="min-h-[calc(100vh-52px)] flex flex-col items-center justify-center px-5 py-16">
                 <div className="fade-up text-center mb-12">
                   <h1
@@ -466,6 +467,7 @@ export default function App() {
 
               {/* Featured timelines showcase */}
               <FeaturedTimelines onSelect={(topic, s, e) => void handleBrowse(topic, s, e)} />
+              </>
             )}
 
             {/* Progressive timeline — shows real events as they stream in */}
