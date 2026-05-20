@@ -184,7 +184,22 @@ export async function getAdminLog(limit = 200): Promise<string[]> {
 
 export async function isAdminRunning(): Promise<boolean> {
   if (!redis) return false;
-  try { return (await redis.get(ADMIN_RUNNING_KEY)) === '1'; }
+  try {
+    const flag = await redis.get(ADMIN_RUNNING_KEY);
+    if (flag !== '1') return false;
+    // Stale guard: if the flag has been set for >15 minutes with no log entries,
+    // the Azure Function was likely killed by the Consumption plan timeout.
+    const [ttl, logLen] = await Promise.all([
+      redis.ttl(ADMIN_RUNNING_KEY),
+      redis.llen(ADMIN_LOG_KEY),
+    ]);
+    const ageSeconds = 3600 - ttl;
+    if (ageSeconds > 900 && logLen === 0) {
+      void redis.del(ADMIN_RUNNING_KEY); // auto-clear stale flag
+      return false;
+    }
+    return true;
+  }
   catch { return false; }
 }
 
