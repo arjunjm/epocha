@@ -341,11 +341,6 @@ export default function App() {
             {!timeline && !isLoading && (
               <div className="min-h-[calc(100vh-52px)] flex flex-col items-center justify-center px-5 py-16">
                 <div className="fade-up text-center mb-12">
-                  <div className="flex items-center justify-center gap-4 mb-8">
-                    <div className="h-px w-16 bg-gradient-to-r from-transparent to-amber-400/60" />
-                    <span className="text-amber-400/60 text-xs tracking-[0.3em] uppercase font-medium">Est. 2025</span>
-                    <div className="h-px w-16 bg-gradient-to-l from-transparent to-amber-400/60" />
-                  </div>
                   <h1
                     className="font-cinzel font-black text-transparent bg-clip-text leading-none mb-4 select-none"
                     style={{

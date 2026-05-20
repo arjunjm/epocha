@@ -14,7 +14,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!topic.trim() || !startYear.trim() || !endYear.trim()) return;
+    if (!topic.trim()) return;
     onSubmit(topic.trim(), startYear.trim(), endYear.trim());
   };
 
@@ -50,7 +50,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
           <label htmlFor="startYear" className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-            From
+            From <span className="text-slate-600 normal-case font-normal tracking-normal">optional</span>
           </label>
           <input
             id="startYear"
@@ -59,12 +59,11 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
             onChange={(e) => setStartYear(e.target.value)}
             placeholder="e.g., 600 BCE"
             className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 outline-none text-white placeholder:text-slate-600 transition-all text-sm"
-            required
           />
         </div>
         <div>
           <label htmlFor="endYear" className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-            To
+            To <span className="text-slate-600 normal-case font-normal tracking-normal">optional</span>
           </label>
           <input
             id="endYear"
@@ -73,7 +72,6 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
             onChange={(e) => setEndYear(e.target.value)}
             placeholder="e.g., 400 CE"
             className="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 outline-none text-white placeholder:text-slate-600 transition-all text-sm"
-            required
           />
         </div>
       </div>
@@ -83,7 +81,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
         disabled={isOut}
         className="w-full py-4 rounded-xl font-semibold text-sm tracking-wide text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 active:scale-[0.98] transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {isOut ? 'Daily limit reached' : 'Generate Timeline →'}
+        {isOut ? 'Daily limit reached' : 'Explore →'}
       </button>
 
       {/* Daily usage bar */}

@@ -146,10 +146,12 @@ app.get('/api/timeline/browse', async (req, res) => {
 // Authenticated generate endpoint — generates if not cached
 app.post('/api/timeline', auth, async (req, res) => {
   const authReq = req as AuthRequest;
-  const { topic, startYear, endYear } = req.body as { topic: string; startYear: string; endYear: string };
+  const { topic, startYear: rawStart, endYear: rawEnd } = req.body as { topic: string; startYear?: string; endYear?: string };
+  const startYear = rawStart?.trim() ?? '';
+  const endYear = rawEnd?.trim() ?? '';
 
-  if (!topic || !startYear || !endYear) {
-    res.status(400).json({ error: 'Missing required fields: topic, startYear, endYear' });
+  if (!topic) {
+    res.status(400).json({ error: 'Missing required field: topic' });
     return;
   }
 
@@ -169,7 +171,8 @@ app.post('/api/timeline', auth, async (req, res) => {
 
   const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
-  send({ type: 'status', message: `Researching "${topic}" from ${startYear} to ${endYear}…` });
+  const periodLabel = startYear && endYear ? ` from ${startYear} to ${endYear}` : '';
+  send({ type: 'status', message: `Researching "${topic}"${periodLabel}…` });
 
   if (USE_STUB) {
     await new Promise(r => setTimeout(r, 400));
@@ -197,7 +200,10 @@ app.post('/api/timeline', auth, async (req, res) => {
       model: 'claude-haiku-4-5',
       max_tokens: 8192,
       system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.` }],
+      messages: [{ role: 'user', content: startYear && endYear
+        ? `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.`
+        : `Generate a detailed timeline for: "${topic}"\nChoose the most historically significant and complete time period for this topic. Return only the JSON object.`
+      }],
     }, { signal: controller.signal });
 
     let fullText = '';
