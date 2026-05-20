@@ -174,6 +174,8 @@ export async function deleteCached(topic: string, startYear: string, endYear: st
 
 const ADMIN_LOG_KEY = 'epocha:admin:job-log';
 const ADMIN_RUNNING_KEY = 'epocha:admin:running';
+const ADMIN_PENDING_KEY = 'epocha:admin:job-pending';
+const ADMIN_TOTAL_KEY = 'epocha:admin:job-total';
 const ADMIN_LOG_MAX = 500;
 
 export async function getAdminLog(limit = 200): Promise<string[]> {
@@ -207,6 +209,25 @@ export async function clearAdminLog(): Promise<void> {
   if (!redis) return;
   try { await redis.del(ADMIN_LOG_KEY); }
   catch { /* non-critical */ }
+}
+
+export interface AdminProgress {
+  total: number;
+  pending: number;
+  done: number;
+}
+
+export async function getAdminProgress(): Promise<AdminProgress> {
+  if (!redis) return { total: 0, pending: 0, done: 0 };
+  try {
+    const [totalStr, pendingStr] = await Promise.all([
+      redis.get(ADMIN_TOTAL_KEY),
+      redis.get(ADMIN_PENDING_KEY),
+    ]);
+    const total = parseInt(totalStr ?? '0', 10) || 0;
+    const pending = Math.max(0, parseInt(pendingStr ?? '0', 10) || 0);
+    return { total, pending, done: total - pending };
+  } catch { return { total: 0, pending: 0, done: 0 }; }
 }
 
 // ── Cache contents (admin view) ───────────────────────────────────────────

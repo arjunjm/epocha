@@ -2,7 +2,7 @@
   "name": "epocha-functions",
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/pregenerateTrigger.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "dev": "func start",
@@ -13,6 +13,7 @@
     "@azure/functions": "^4.7.0",
     "@azure/identity": "^4.13.1",
     "@azure/keyvault-secrets": "^4.11.2",
+    "@azure/storage-queue": "^12.29.0",
     "ioredis": "^5.10.1",
     "openai": "^6.38.0"
   },

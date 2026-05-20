@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry, getAdminProgress } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -449,10 +449,14 @@ const adminAuth: express.RequestHandler = (req, res, next) => {
 
 const FUNC_BASE_URL = `https://${process.env.AZURE_FUNC_NAME ?? 'func-timelineapp-dev'}.azurewebsites.net/api`;
 
-// Job log + running status
+// Job log + running status + queue progress
 app.get('/api/admin/status', auth, adminAuth, ah(async (_req, res) => {
-  const [running, logs] = await Promise.all([isAdminRunning(), getAdminLog(300)]);
-  res.json({ running, logs });
+  const [running, logs, progress] = await Promise.all([
+    isAdminRunning(),
+    getAdminLog(300),
+    getAdminProgress(),
+  ]);
+  res.json({ running, logs, progress });
 }));
 
 app.delete('/api/admin/logs', auth, adminAuth, ah(async (_req, res) => {

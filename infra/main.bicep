@@ -222,6 +222,25 @@ resource funcStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: { minimumTlsVersion: 'TLS1_2' }
 }
 
+// ── Storage Queue (pregeneration job queue) ───────────────────────────────
+// Uses the same storage account as AzureWebJobsStorage — no extra cost.
+
+resource funcStorageQueueService 'Microsoft.Storage/storageAccounts/queueServices@2023-05-01' = {
+  parent: funcStorage
+  name: 'default'
+}
+
+resource pregenQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = {
+  parent: funcStorageQueueService
+  name: 'epocha-pregenerate-jobs'
+}
+
+// Dead-letter queue (messages that failed maxDequeueCount retries land here)
+resource pregenPoisonQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = {
+  parent: funcStorageQueueService
+  name: 'epocha-pregenerate-jobs-poison'
+}
+
 resource funcPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: funcPlanName
   location: location

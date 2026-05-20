@@ -1,8 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 
+interface AdminProgress {
+  total: number;
+  pending: number;
+  done: number;
+}
+
 interface JobStatus {
   running: boolean;
   logs: string[];
+  progress?: AdminProgress;
 }
 
 interface CacheEntry {
@@ -199,6 +206,29 @@ export default function AdminPage() {
 
         {/* Job log */}
         <div className="glass rounded-2xl border border-white/8 overflow-hidden">
+          {/* Progress bar — visible when total > 0 */}
+          {status.progress && status.progress.total > 0 && (
+            <div className="px-5 pt-3 pb-2 border-b border-white/5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-slate-400">
+                  {status.running
+                    ? `Generating… ${status.progress.done} / ${status.progress.total}`
+                    : `Complete — ${status.progress.done} / ${status.progress.total}`}
+                </span>
+                <span className="text-xs text-slate-600">
+                  {Math.round((status.progress.done / status.progress.total) * 100)}%
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    status.running ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`}
+                  style={{ width: `${Math.round((status.progress.done / status.progress.total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-300">Job Log</span>
