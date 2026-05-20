@@ -47,6 +47,34 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
     onClose();
   };
 
+  const suggestions = (() => {
+    if (history.length < 2) return [];
+    const viewedTopics = new Set(history.map(h => h.topic));
+    // Find which categories user's history belongs to
+    const categoryCounts = new Map<string, number>();
+    for (const entry of history) {
+      for (const cat of TOPIC_TAXONOMY) {
+        if (cat.items.some(i => i.topic === entry.topic)) {
+          categoryCounts.set(cat.label, (categoryCounts.get(cat.label) ?? 0) + 1);
+        }
+      }
+    }
+    // Sort categories by interest
+    const rankedCats = [...categoryCounts.entries()].sort((a, b) => b[1] - a[1]).map(([label]) => label);
+    const picks: TopicEntry[] = [];
+    for (const catLabel of rankedCats) {
+      const cat = TOPIC_TAXONOMY.find(c => c.label === catLabel);
+      if (!cat) continue;
+      for (const item of cat.items) {
+        if (!viewedTopics.has(item.topic) && !picks.some(p => p.topic === item.topic)) {
+          picks.push(item);
+          if (picks.length >= 3) return picks;
+        }
+      }
+    }
+    return picks;
+  })();
+
   const handleAddCustomTopic = async () => {
     if (!newTopic.name || !newTopic.label || !newTopic.start || !newTopic.end) return;
     setAdding(true);
@@ -124,6 +152,25 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Personalised suggestions */}
+          {suggestions.length > 0 && (
+            <div className="mb-1 border-b border-white/5 pb-2">
+              <p className="px-4 py-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">You might like</p>
+              {suggestions.map(item => (
+                <button
+                  key={item.topic}
+                  onClick={() => handleSelect(item)}
+                  className="w-full text-left px-4 py-2 pl-8 text-xs transition-all flex items-center justify-between group/item text-slate-500 hover:text-slate-200 hover:bg-white/5"
+                >
+                  <span className="leading-snug truncate">✨ {item.label}</span>
+                  <span className="text-[10px] shrink-0 ml-2 transition-opacity text-slate-700 opacity-0 group-hover/item:opacity-100">
+                    {item.start}–{item.end}
+                  </span>
+                </button>
+              ))}
             </div>
           )}
 
