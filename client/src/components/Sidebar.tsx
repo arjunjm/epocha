@@ -116,7 +116,7 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
       )}
 
       <aside className={`
-        fixed top-[52px] left-0 z-40 h-[calc(100vh-52px)] w-64
+        fixed top-[52px] left-0 z-40 h-[calc(100vh-52px)] w-72
         bg-[#0d1120] border-r border-white/5
         flex flex-col overflow-hidden
         transition-transform duration-300 ease-in-out
@@ -179,7 +179,7 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
                   className={`w-full text-left px-4 py-2 pl-10 text-xs transition-all flex items-center justify-between group/item
                     ${activeTopic === t.topic ? 'text-amber-300 bg-amber-400/10 border-r-2 border-amber-400' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
                 >
-                  <span className="leading-snug truncate">{t.topic}</span>
+                  <span className="leading-snug break-words">{t.topic}</span>
                   <span className="text-[10px] shrink-0 ml-2 text-slate-700 opacity-0 group-hover/item:opacity-100 transition-opacity">{t.period}</span>
                 </button>
               ))}
@@ -196,7 +196,7 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
                   onClick={() => handleSelect(item)}
                   className="w-full text-left px-4 py-2 pl-8 text-xs transition-all flex items-center justify-between group/item text-slate-500 hover:text-slate-200 hover:bg-white/5"
                 >
-                  <span className="leading-snug truncate">✨ {item.label}</span>
+                  <span className="leading-snug break-words">✨ {item.label}</span>
                   <span className="text-[10px] shrink-0 ml-2 transition-opacity text-slate-700 opacity-0 group-hover/item:opacity-100">
                     {item.start}–{item.end}
                   </span>
