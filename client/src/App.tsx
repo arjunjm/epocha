@@ -22,8 +22,19 @@ import { useScrollProgress } from './hooks/useScrollProgress';
 import MobileNav from './components/MobileNav';
 import FeaturedTimelines from './components/FeaturedTimelines';
 import type { TimelineData, AppStatus, AppPage } from './types';
+import { TOPIC_TAXONOMY } from './data/topics';
 
 const DEFAULT_PERIOD = { start: '1', end: '2000' };
+
+// One representative topic per category — all valid sidebar entries with correct periods
+const QUICK_CHIPS = [
+  TOPIC_TAXONOMY[0]!.items[1]!, // The Roman Empire
+  TOPIC_TAXONOMY[3]!.items[3]!, // The Cold War
+  TOPIC_TAXONOMY[2]!.items[1]!, // The Space Race
+  TOPIC_TAXONOMY[4]!.items[0]!, // The Renaissance
+  TOPIC_TAXONOMY[7]!.items[3]!, // Napoleonic Wars
+  TOPIC_TAXONOMY[1]!.items[2]!, // The Enlightenment
+];
 
 export default function App() {
   const { user, loading: authLoading, signIn, signOut, refresh } = useAuth();
@@ -250,8 +261,9 @@ export default function App() {
     window.history.replaceState(null, '', '/');
   };
 
+  // Related topics: authenticated path so cache misses count against daily limit
   const handleRelatedSelect = (topic: string) => {
-    void handleBrowse(topic, DEFAULT_PERIOD.start, DEFAULT_PERIOD.end);
+    void handleGenerate(topic, DEFAULT_PERIOD.start, DEFAULT_PERIOD.end);
   };
 
   const isLoading = status.loading;
@@ -470,18 +482,15 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Quick-start chips */}
+                {/* Quick-start chips — drawn from sidebar taxonomy so they always have correct periods */}
                 <div className="fade-up mt-6 flex flex-wrap justify-center gap-2 max-w-lg" style={{ animationDelay: '0.25s' }}>
-                  {[
-                    'The Mongol Empire', 'The Cold War', 'Rise of Generative AI',
-                    'The Renaissance', 'The Silk Road', 'Ancient Greece',
-                  ].map(topic => (
+                  {QUICK_CHIPS.map(item => (
                     <button
-                      key={topic}
-                      onClick={() => void handleBrowse(topic, '', '')}
+                      key={item.topic}
+                      onClick={() => void handleBrowse(item.topic, item.start, item.end)}
                       className="px-3 py-1 rounded-full text-xs text-slate-500 border border-white/8 hover:border-amber-400/30 hover:text-amber-300 transition-all bg-white/3 hover:bg-amber-400/5"
                     >
-                      {topic}
+                      {item.label}
                     </button>
                   ))}
                 </div>
@@ -572,7 +581,7 @@ export default function App() {
                 <Timeline
                   data={timeline}
                   onReset={handleReset}
-                  onRelatedSelect={handleRelatedSelect}
+                  onRelatedSelect={user ? handleRelatedSelect : undefined}
                   onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
                   onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
                   onSaved={() => setCollectionsRefreshKey(k => k + 1)}
