@@ -50,7 +50,7 @@ async function writeJson<T>(filePath: string, data: T[]): Promise<void> {
 
 // ── User helpers ───────────────────────────────────────────────────────────
 
-const useCosmosDB = !!getSecret('cosmos-endpoint');
+const useCosmosDB = () => !!getSecret('cosmos-endpoint');
 
 function defaultUser(profile: { id: string; email: string; name: string; picture?: string }): User {
   return {
@@ -67,7 +67,7 @@ function defaultUser(profile: { id: string; email: string; name: string; picture
 }
 
 export async function findUser(id: string): Promise<User | null> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { users } = await getCosmosContainers();
     try { const { resource } = await users.item(id, id).read<User>(); return resource ?? null; }
     catch { return null; }
@@ -77,7 +77,7 @@ export async function findUser(id: string): Promise<User | null> {
 }
 
 export async function countUsers(): Promise<number> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { users } = await getCosmosContainers();
     const { resources } = await users.items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
     return (resources[0] as number) ?? 0;
@@ -86,7 +86,7 @@ export async function countUsers(): Promise<number> {
 }
 
 export async function upsertUser(user: User): Promise<User> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { users } = await getCosmosContainers();
     const { resource } = await users.items.upsert<User>(user);
     return resource!;
@@ -163,7 +163,7 @@ export async function setActiveTheme(userId: string, themeId: string): Promise<U
 // ── Saved timelines ────────────────────────────────────────────────────────
 
 export async function getSavedTimelines(userId: string): Promise<SavedTimeline[]> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { saved } = await getCosmosContainers();
     const { resources } = await saved.items
       .query({ query: 'SELECT * FROM c WHERE c.userId = @uid', parameters: [{ name: '@uid', value: userId }] })
@@ -176,7 +176,7 @@ export async function getSavedTimelines(userId: string): Promise<SavedTimeline[]
 
 export async function saveTimeline(userId: string, data: Omit<SavedTimeline, 'id' | 'userId' | 'savedAt'>): Promise<SavedTimeline> {
   const item: SavedTimeline = { id: randomUUID(), userId, savedAt: new Date().toISOString(), ...data };
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { saved } = await getCosmosContainers();
     await saved.items.create(item);
   } else {
@@ -188,7 +188,7 @@ export async function saveTimeline(userId: string, data: Omit<SavedTimeline, 'id
 }
 
 export async function deleteSavedTimeline(userId: string, id: string): Promise<boolean> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { saved } = await getCosmosContainers();
     try { await saved.item(id, userId).delete(); return true; } catch { return false; }
   }
@@ -202,7 +202,7 @@ export async function deleteSavedTimeline(userId: string, id: string): Promise<b
 // ── Custom topics ──────────────────────────────────────────────────────────
 
 export async function getCustomTopics(userId: string): Promise<CustomTopic[]> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { topics } = await getCosmosContainers();
     const { resources } = await topics.items
       .query({ query: 'SELECT * FROM c WHERE c.userId = @uid', parameters: [{ name: '@uid', value: userId }] })
@@ -215,7 +215,7 @@ export async function getCustomTopics(userId: string): Promise<CustomTopic[]> {
 
 export async function saveCustomTopic(userId: string, data: Omit<CustomTopic, 'id' | 'userId' | 'createdAt'>): Promise<CustomTopic> {
   const item: CustomTopic = { id: randomUUID(), userId, createdAt: new Date().toISOString(), ...data };
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { topics } = await getCosmosContainers();
     await topics.items.create(item);
   } else {
@@ -227,7 +227,7 @@ export async function saveCustomTopic(userId: string, data: Omit<CustomTopic, 'i
 }
 
 export async function deleteCustomTopic(userId: string, id: string): Promise<boolean> {
-  if (useCosmosDB) {
+  if (useCosmosDB()) {
     const { topics } = await getCosmosContainers();
     try { await topics.item(id, userId).delete(); return true; } catch { return false; }
   }
