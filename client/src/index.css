@@ -145,6 +145,87 @@
   background: linear-gradient(to bottom, #4ade80, #22c55e, #16a34a, #15803d, #166534);
 }
 
+/* ── Light mode ──────────────────────────────────────────────────────────── */
+
+[data-color-scheme="light"] body {
+  background: #f5f3ef;
+  color: #1e293b;
+}
+
+[data-color-scheme="light"] .hero-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(120, 40, 200, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(180, 130, 20, 0.05) 0%, transparent 50%),
+    #f5f3ef;
+}
+
+/* Flip text utilities */
+[data-color-scheme="light"] .text-white  { color: #0f172a !important; }
+[data-color-scheme="light"] .text-slate-100 { color: #1e293b !important; }
+[data-color-scheme="light"] .text-slate-200 { color: #334155 !important; }
+[data-color-scheme="light"] .text-slate-300 { color: #475569 !important; }
+[data-color-scheme="light"] .text-slate-400 { color: #64748b !important; }
+[data-color-scheme="light"] .text-slate-500 { color: #94a3b8 !important; }
+[data-color-scheme="light"] .text-slate-600 { color: #b0bbc8 !important; }
+[data-color-scheme="light"] .text-slate-700 { color: #c8d0d9 !important; }
+
+/* Cards */
+[data-color-scheme="light"] .glass {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+[data-color-scheme="light"] .glass-hover:hover {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border-color: rgba(0, 0, 0, 0.11) !important;
+}
+
+/* Surface backgrounds */
+[data-color-scheme="light"] .bg-white\/3  { background: rgba(0,0,0,0.02) !important; }
+[data-color-scheme="light"] .bg-white\/4  { background: rgba(0,0,0,0.03) !important; }
+[data-color-scheme="light"] .bg-white\/5  { background: rgba(0,0,0,0.04) !important; }
+[data-color-scheme="light"] .bg-white\/8  { background: rgba(0,0,0,0.05) !important; }
+[data-color-scheme="light"] .bg-white\/10 { background: rgba(0,0,0,0.06) !important; }
+[data-color-scheme="light"] .bg-white\/12 { background: rgba(0,0,0,0.07) !important; }
+
+/* Borders */
+[data-color-scheme="light"] .border-white\/5  { border-color: rgba(0,0,0,0.05) !important; }
+[data-color-scheme="light"] .border-white\/6  { border-color: rgba(0,0,0,0.06) !important; }
+[data-color-scheme="light"] .border-white\/8  { border-color: rgba(0,0,0,0.07) !important; }
+[data-color-scheme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.08) !important; }
+[data-color-scheme="light"] .border-white\/15 { border-color: rgba(0,0,0,0.10) !important; }
+[data-color-scheme="light"] .border-white\/20 { border-color: rgba(0,0,0,0.12) !important; }
+
+/* Inputs */
+[data-color-scheme="light"] input,
+[data-color-scheme="light"] textarea,
+[data-color-scheme="light"] select {
+  background: rgba(0,0,0,0.04) !important;
+  border-color: rgba(0,0,0,0.10) !important;
+  color: #1e293b !important;
+}
+[data-color-scheme="light"] input::placeholder,
+[data-color-scheme="light"] textarea::placeholder { color: #94a3b8 !important; }
+
+/* Nav */
+[data-color-scheme="light"] header {
+  background: rgba(245, 243, 239, 0.92) !important;
+  border-color: rgba(0,0,0,0.08) !important;
+}
+
+/* Sidebar */
+[data-color-scheme="light"] aside {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.07) !important;
+}
+
+/* Scrollbar */
+[data-color-scheme="light"] ::-webkit-scrollbar-track { background: #ede9e3; }
+[data-color-scheme="light"] ::-webkit-scrollbar-thumb { background: rgba(180,130,20,0.25); }
+
+/* Timeline connector */
+[data-color-scheme="light"] .timeline-line { opacity: 0.4; }
+
 /* ── Print / PDF styles ──────────────────────────────────────────────────── */
 
 @media print {

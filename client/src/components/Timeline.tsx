@@ -632,7 +632,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
       ) : (
         <div className="relative">
           <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 timeline-line opacity-30" />
-          <div className="space-y-6 lg:space-y-0">
+          <div className="space-y-10 lg:space-y-0">
             {visibleEvents.map((event, index) => {
               const { gradient, glow } = getGradient(index, visibleEvents.length);
               const isLeft = index % 2 === 0;
@@ -679,7 +679,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                     style={{ top: `${index === 0 ? 24 : 0}px`, position: 'absolute' }}
                   />
                   <div className="lg:hidden">
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-3 mb-4">
                       <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${gradient} flex-shrink-0`} />
                       <DatePill date={event.date} gradient={gradient} />
                     </div>

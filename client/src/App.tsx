@@ -36,7 +36,16 @@ export default function App() {
   const [pendingTopic, setPendingTopic] = useState<{ topic: string; start: string; end: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [streamingMeta, setStreamingMeta] = useState<{ topic: string; period: string; description: string } | null>(null);
+  const [colorScheme, setColorScheme] = useState<'dark' | 'light'>(() =>
+    (localStorage.getItem('epocha-color-scheme') as 'dark' | 'light') ?? 'dark'
+  );
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
+
+  // Apply color scheme attribute
+  useEffect(() => {
+    document.documentElement.setAttribute('data-color-scheme', colorScheme);
+    localStorage.setItem('epocha-color-scheme', colorScheme);
+  }, [colorScheme]);
 
   // Apply theme from user profile
   useEffect(() => {
@@ -280,6 +289,23 @@ export default function App() {
                 </button>
               </>
             )}
+
+            {/* Light / dark toggle */}
+            <button
+              onClick={() => setColorScheme(s => s === 'dark' ? 'light' : 'dark')}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-slate-400 hover:text-white"
+              title={colorScheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {colorScheme === 'dark' ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 5a7 7 0 100 14A7 7 0 0012 5z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
 
             {user ? (
               <ProfileBadge user={user} onClick={() => setShowProfile(true)} />
