@@ -21,6 +21,7 @@ interface Props {
   onRelatedSelect?: (topic: string) => void;
   onContinue?: (topic: string, start: string, end: string) => void;
   onRegenerateSkipCache?: () => void;
+  onSaved?: () => void;
   warning?: string;
   user?: AuthUser | null;
   onSignIn?: () => void;
@@ -50,7 +51,7 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, warning, user, onSignIn }: Props) {
+export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onSaved, warning, user, onSignIn }: Props) {
   const total = data.events.length;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -184,6 +185,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
         setSaved(true);
         setShowSaveForm(false);
         toast.xp('+5 XP', 'Timeline saved');
+        onSaved?.();
       } else {
         setSaveError('Failed to save');
       }

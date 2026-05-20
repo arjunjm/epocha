@@ -41,6 +41,7 @@ export default function App() {
   );
   const [streamingEvents, setStreamingEvents] = useState<import('./types').TimelineEvent[]>([]);
   const [timelineWarning, setTimelineWarning] = useState<string | undefined>();
+  const [collectionsRefreshKey, setCollectionsRefreshKey] = useState(0);
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Apply color scheme attribute
@@ -354,6 +355,7 @@ export default function App() {
         onSignIn={signIn}
         history={history}
         onOpenLibrary={() => { setPage('saved'); setTimeline(null); setStatus({ loading: false }); }}
+        collectionsRefreshKey={collectionsRefreshKey}
       />
 
       {/* Main content */}
@@ -521,6 +523,7 @@ export default function App() {
                   onRelatedSelect={handleRelatedSelect}
                   onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
                   onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
+                  onSaved={() => setCollectionsRefreshKey(k => k + 1)}
                   warning={timelineWarning}
                   user={user}
                   onSignIn={signIn}

@@ -13,9 +13,10 @@ interface Props {
   onSignIn?: () => void;
   history?: HistoryEntry[];
   onOpenLibrary?: () => void;
+  collectionsRefreshKey?: number;
 }
 
-export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, onSignIn, history = [], onOpenLibrary }: Props) {
+export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, onSignIn, history = [], onOpenLibrary, collectionsRefreshKey }: Props) {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['Philosophy', 'Science & Technology'])
   );
@@ -26,7 +27,7 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
   useEffect(() => {
     if (user) void fetchSaved();
     else setSavedTimelines([]);
-  }, [user]);
+  }, [user, collectionsRefreshKey]);
 
   const fetchSaved = async () => {
     setCollectionsLoading(true);
