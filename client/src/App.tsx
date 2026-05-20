@@ -18,6 +18,8 @@ import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
 import { useSession, loadSession } from './hooks/useSession';
 import { useScrollProgress } from './hooks/useScrollProgress';
+import MobileNav from './components/MobileNav';
+import FeaturedTimelines from './components/FeaturedTimelines';
 import type { TimelineData, AppStatus, AppPage } from './types';
 
 const DEFAULT_PERIOD = { start: '1', end: '2000' };
@@ -359,7 +361,7 @@ export default function App() {
       />
 
       {/* Main content */}
-      <main className="pt-[52px] lg:pl-64 min-h-screen">
+      <main className="pt-[52px] pb-16 lg:pb-0 lg:pl-64 min-h-screen">
 
         {/* Discover page — public */}
         {page === 'discover' && (
@@ -400,7 +402,10 @@ export default function App() {
                     EPOCHA
                   </h1>
                   <p className="font-serif italic text-slate-400 text-lg sm:text-xl tracking-wide mb-2">
-                    Explore the arc of history
+                    Any topic. Any era. Instant history.
+                  </p>
+                  <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed mt-3">
+                    From Ancient Rome to the Gaza conflict — type any subject and get a rich, structured timeline in seconds.
                   </p>
                   <div className="flex items-center justify-center gap-4 mt-6">
                     <div className="h-px w-24 bg-gradient-to-r from-transparent to-white/10" />
@@ -438,10 +443,29 @@ export default function App() {
                   </div>
                 )}
 
-                <p className="fade-up mt-8 text-xs text-slate-700 text-center" style={{ animationDelay: '0.25s' }}>
-                  ← Browse topics in the sidebar — no sign-in required
+                {/* Quick-start chips */}
+                <div className="fade-up mt-6 flex flex-wrap justify-center gap-2 max-w-lg" style={{ animationDelay: '0.25s' }}>
+                  {[
+                    'The Mongol Empire', 'The Cold War', 'Rise of Generative AI',
+                    'The Renaissance', 'The Silk Road', 'Ancient Greece',
+                  ].map(topic => (
+                    <button
+                      key={topic}
+                      onClick={() => void handleBrowse(topic, '', '')}
+                      className="px-3 py-1 rounded-full text-xs text-slate-500 border border-white/8 hover:border-amber-400/30 hover:text-amber-300 transition-all bg-white/3 hover:bg-amber-400/5"
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="fade-up mt-5 text-xs text-slate-700 text-center" style={{ animationDelay: '0.3s' }}>
+                  Browse topics in the sidebar · no sign-in required
                 </p>
               </div>
+
+              {/* Featured timelines showcase */}
+              <FeaturedTimelines onSelect={(topic, s, e) => void handleBrowse(topic, s, e)} />
             )}
 
             {/* Progressive timeline — shows real events as they stream in */}
@@ -533,6 +557,17 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* Mobile bottom nav */}
+      <MobileNav
+        page={page}
+        user={user}
+        onNavigate={(p) => {
+          setPage(p);
+          setTimeline(null);
+          setStatus({ loading: false });
+        }}
+      />
     </div>
   );
 }
