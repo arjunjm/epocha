@@ -269,6 +269,11 @@ async function runPreGeneration(
 
       if (result) {
         await redis.setex(key, TTL, result);
+        // Index in trending sorted set for sidebar display
+        const parsed = JSON.parse(result) as { period?: string };
+        const meta = JSON.stringify({ topic: job.topic, startYear: job.startYear, endYear: job.endYear, period: parsed.period ?? '' });
+        void redis.zadd('epocha:trending-topics', Date.now(), meta)
+          .then(() => redis.zremrangebyrank('epocha:trending-topics', 0, -51));
         generated++;
         log(`Cached: ${job.topic}`);
         try {

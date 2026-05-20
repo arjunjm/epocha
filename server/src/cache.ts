@@ -77,12 +77,52 @@ export async function setCached(
       }
     }
     console.log(`[cache] Stored timeline for "${topic}"`);
+    // Index in trending set (score = timestamp for recency sorting)
+    if (redis) {
+      const meta = JSON.stringify({ topic, startYear, endYear, period: timeline.period });
+      void redis.zadd(TRENDING_KEY, Date.now(), meta)
+        .then(() => redis!.zremrangebyrank(TRENDING_KEY, 0, -(TRENDING_MAX + 1)));
+    }
   } catch (err) {
     console.warn('[cache] Failed to cache timeline:', err);
   }
 }
 
+export interface TrendingTopic {
+  topic: string;
+  startYear: string;
+  endYear: string;
+  period: string;
+}
+
+export async function getTrendingTopics(limit = 20): Promise<TrendingTopic[]> {
+  if (!redis) return [];
+  try {
+    const members = await redis.zrevrange(TRENDING_KEY, 0, limit * 2 - 1); // fetch extra, some may be filtered
+    return members
+      .map(m => { try { return JSON.parse(m) as TrendingTopic; } catch { return null; } })
+      .filter((t): t is TrendingTopic => !!t && !!t.topic && !DEFAULT_TOPICS.has(t.topic))
+      .slice(0, limit);
+  } catch { return []; }
+}
+
 const SEARCH_KEY = 'epocha:popular-topics';
+const TRENDING_KEY = 'epocha:trending-topics';
+const TRENDING_MAX = 50;
+
+// Sidebar default topics — excluded from trending display
+const DEFAULT_TOPICS = new Set([
+  'Ancient Greece','The Roman Empire','Ancient Egypt','Mesopotamia & Early Civilization',
+  'The Persian Empire','History of Western Philosophy','Eastern Philosophy','The Enlightenment',
+  'Existentialism','History of Political Philosophy','History of Computing','The Space Race',
+  'History of Physics from Newton to Quantum Mechanics','History of Evolutionary Biology',
+  'History of Artificial Intelligence','History of Medicine','The French Revolution',
+  'The American Revolution','The Russian Revolution','The Cold War','World War I','World War II',
+  'The Civil Rights Movement','The Renaissance','The Age of Exploration','The Industrial Revolution',
+  'The Ottoman Empire','The Mughal Empire','The Ming Dynasty','The Byzantine Empire',
+  'Ancient India','Ancient China','The Viking Age','The Crusades','The Silk Road',
+  'The British Empire','The Mongol Empire','The Islamic Golden Age',
+]);
 
 export async function trackSearch(topic: string, startYear: string, endYear: string): Promise<void> {
   if (!redis) return; // only track in production (Redis present)

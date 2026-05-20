@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -117,6 +117,12 @@ Rules:
 - Always return ONLY the JSON object`;
 
 // ── Timeline routes ────────────────────────────────────────────────────────
+
+// Public trending topics — topics pre-generated beyond the default sidebar list
+app.get('/api/timeline/trending', async (_req, res) => {
+  const topics = await getTrendingTopics(20);
+  res.json(topics);
+});
 
 // Public browse endpoint — serves cached timelines only, no auth required
 app.get('/api/timeline/browse', async (req, res) => {
