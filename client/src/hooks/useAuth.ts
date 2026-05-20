@@ -5,9 +5,10 @@ export interface AuthUser {
   name: string;
   email: string;
   picture?: string;
+  isAdmin?: boolean;
   dailyCount: number;
-  dailyLimit: number;
-  remaining: number;
+  dailyLimit: number | null;
+  remaining: number | null;
   xp: number;
   level: number;
   activeTheme: string;

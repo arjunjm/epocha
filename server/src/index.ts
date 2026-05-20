@@ -68,6 +68,7 @@ app.get('/api/auth/me', auth, async (req, res) => {
     name: user.name,
     email: user.email,
     picture: user.picture,
+    isAdmin,
     dailyCount: user.dailyCount,
     dailyLimit: isAdmin ? null : DAILY_LIMIT,
     remaining: isAdmin ? null : Math.max(0, DAILY_LIMIT - user.dailyCount),
@@ -148,14 +149,8 @@ app.post('/api/timeline', auth, async (req, res) => {
     return;
   }
 
-  if (!USE_STUB) {
-    const { allowed, remaining } = await checkAndIncrementRateLimit(authReq.user!.id);
-    if (!allowed) {
-      res.status(429).json({ error: `Daily limit of ${DAILY_LIMIT} timelines reached. Resets at midnight UTC.` });
-      return;
-    }
-    res.setHeader('X-RateLimit-Remaining', String(remaining));
-  }
+  const isAdmin = ADMIN_EMAILS.has(authReq.user!.email ?? '');
+  const { skipCache } = req.body as { skipCache?: boolean };
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -174,15 +169,28 @@ app.post('/api/timeline', auth, async (req, res) => {
     return;
   }
 
-  const cached = await getCached(topic, startYear, endYear);
-  if (cached) {
-    send({ type: 'status', message: 'Loading from cache…' });
-    await new Promise(r => setTimeout(r, 300));
-    send({ type: 'complete', timeline: cached });
-    // Award XP for viewing
-    void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);
-    res.end();
-    return;
+  // Serve from cache (unless admin requested skip)
+  if (!skipCache || !isAdmin) {
+    const cached = await getCached(topic, startYear, endYear);
+    if (cached) {
+      send({ type: 'status', message: 'Loading from cache…' });
+      await new Promise(r => setTimeout(r, 300));
+      send({ type: 'complete', timeline: cached });
+      void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);
+      res.end();
+      return;
+    }
+  }
+
+  // Rate limit only applies to actual LLM calls, not cache hits
+  if (!USE_STUB) {
+    const { allowed, remaining } = await checkAndIncrementRateLimit(authReq.user!.id);
+    if (!allowed) {
+      send({ type: 'error', message: `Daily limit of ${DAILY_LIMIT} timelines reached. Resets at midnight UTC.` });
+      res.end();
+      return;
+    }
+    res.setHeader('X-RateLimit-Remaining', String(remaining));
   }
 
   const controller = new AbortController();
@@ -219,19 +227,21 @@ app.post('/api/timeline', auth, async (req, res) => {
       timeline = JSON.parse(jsonStr) as TimelineData;
     }
 
-    if (!Array.isArray(timeline.events) || timeline.events.length < 5) {
-      throw new Error(`Incomplete response — only ${timeline.events?.length ?? 0} events generated. Please try again.`);
+    if (!Array.isArray(timeline.events) || timeline.events.length === 0) {
+      throw new Error('No events were generated. Please try again.');
     }
 
     timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
       (a.sortYear ?? 0) - (b.sortYear ?? 0)
     );
 
-    await setCached(topic, startYear, endYear, timeline);
-    send({ type: 'complete', timeline });
+    const isIncomplete = timeline.events.length < 5;
+    if (!isIncomplete) {
+      await setCached(topic, startYear, endYear, timeline);
+      void trackSearch(topic, startYear, endYear);
+    }
 
-    // Track search for popularity-based pre-caching
-    void trackSearch(topic, startYear, endYear);
+    send({ type: 'complete', timeline, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
 
     // Award XP for generating a new timeline
     void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);

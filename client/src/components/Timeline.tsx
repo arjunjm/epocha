@@ -20,6 +20,8 @@ interface Props {
   onReset: () => void;
   onRelatedSelect?: (topic: string) => void;
   onContinue?: (topic: string, start: string, end: string) => void;
+  onRegenerateSkipCache?: () => void;
+  warning?: string;
   user?: AuthUser | null;
   onSignIn?: () => void;
 }
@@ -48,7 +50,7 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, onReset, onRelatedSelect, onContinue, user, onSignIn }: Props) {
+export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, warning, user, onSignIn }: Props) {
   const total = data.events.length;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -455,6 +457,15 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
           >
             ← New search
           </button>
+          {user?.isAdmin && onRegenerateSkipCache && (
+            <button
+              onClick={onRegenerateSkipCache}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 transition-colors print:hidden"
+              title="Bypass cache and regenerate from LLM"
+            >
+              ↺ Skip cache
+            </button>
+          )}
           <button
             onClick={() => setShowHelp(true)}
             className="px-2.5 py-1.5 rounded-full text-xs text-slate-700 border border-white/8 hover:border-white/15 hover:text-slate-400 transition-colors print:hidden"
@@ -587,6 +598,22 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                 title="Clear figure filter"
               >
                 ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Incomplete timeline warning */}
+        {warning && (
+          <div className="mt-4 fade-up flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 max-w-lg">
+              <span className="text-amber-400 text-sm flex-shrink-0">⚠️</span>
+              <span className="text-amber-200/80 text-xs">{warning}</span>
+              <button
+                onClick={onReset}
+                className="shrink-0 text-xs text-amber-400 hover:text-amber-300 underline transition-colors ml-1"
+              >
+                Retry
               </button>
             </div>
           </div>

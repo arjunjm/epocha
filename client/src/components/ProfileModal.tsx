@@ -248,21 +248,23 @@ export default function ProfileModal({ user, onClose, onSignOut, onOpenMarketpla
             )}
           </div>
 
-          {/* ── Daily usage ─────────────────────────────────────────────── */}
-          <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-            <div className="flex justify-between items-center mb-1.5">
-              <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Today</p>
-              <span className={`text-xs font-bold ${user.remaining === 0 ? 'text-red-400' : user.remaining <= 2 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                {user.dailyLimit - user.remaining}/{user.dailyLimit} generations
-              </span>
+          {/* ── Daily usage (hidden for admins) ─────────────────────────── */}
+          {user.dailyLimit != null && user.remaining != null && (
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <div className="flex justify-between items-center mb-1.5">
+                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Today</p>
+                <span className={`text-xs font-bold ${user.remaining === 0 ? 'text-red-400' : user.remaining <= 2 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {user.dailyLimit - user.remaining}/{user.dailyLimit} generations
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${user.remaining === 0 ? 'bg-red-500' : user.remaining <= 2 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${((user.dailyLimit - user.remaining) / user.dailyLimit) * 100}%` }}
+                />
+              </div>
             </div>
-            <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
-              <div
-                className={`h-full rounded-full ${user.remaining === 0 ? 'bg-red-500' : user.remaining <= 2 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                style={{ width: `${((user.dailyLimit - user.remaining) / user.dailyLimit) * 100}%` }}
-              />
-            </div>
-          </div>
+          )}
 
           {/* ── Themes ──────────────────────────────────────────────────── */}
           <div className="bg-white/3 rounded-xl p-3 border border-white/5">

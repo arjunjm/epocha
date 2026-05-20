@@ -40,6 +40,7 @@ export default function App() {
     (localStorage.getItem('epocha-color-scheme') as 'dark' | 'light') ?? 'dark'
   );
   const [streamingEvents, setStreamingEvents] = useState<import('./types').TimelineEvent[]>([]);
+  const [timelineWarning, setTimelineWarning] = useState<string | undefined>();
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Apply color scheme attribute
@@ -126,12 +127,13 @@ export default function App() {
     }
   };
 
-  const handleGenerate = async (topic: string, startYear: string, endYear: string) => {
+  const handleGenerate = async (topic: string, startYear: string, endYear: string, skipCache = false) => {
     if (!user) { setPendingTopic({ topic, start: startYear, end: endYear }); signIn(); return; }
     setStatus({ loading: true, message: `Researching "${topic}"…` });
     setTimeline(null);
     setStreamingMeta(null);
     setStreamingEvents([]);
+    setTimelineWarning(undefined);
     setActiveTopic(topic);
     setPage('home');
 
@@ -140,7 +142,7 @@ export default function App() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, startYear, endYear }),
+        body: JSON.stringify({ topic, startYear, endYear, ...(skipCache && { skipCache: true }) }),
       });
 
       if (!response.ok) {
@@ -167,7 +169,7 @@ export default function App() {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
-            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string; event?: import('./types').TimelineEvent };
+            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string; event?: import('./types').TimelineEvent; warning?: string };
             if (data.type === 'status' && data.message) {
               setStatus({ loading: true, message: data.message });
             } else if (data.type === 'meta' && data.topic) {
@@ -179,6 +181,7 @@ export default function App() {
               setTimeline(data.timeline);
               setStreamingMeta(null);
               setStreamingEvents([]);
+              setTimelineWarning(data.warning);
               setStatus({ loading: false });
               pushTimelineUrl(topic, startYear, endYear);
               pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
@@ -216,6 +219,7 @@ export default function App() {
     setTimeline(null);
     setStreamingMeta(null);
     setStreamingEvents([]);
+    setTimelineWarning(undefined);
     setActiveTopic(undefined);
     setStatus({ loading: false });
     clearSession();
@@ -516,6 +520,8 @@ export default function App() {
                   onReset={handleReset}
                   onRelatedSelect={handleRelatedSelect}
                   onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
+                  onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
+                  warning={timelineWarning}
                   user={user}
                   onSignIn={signIn}
                 />
