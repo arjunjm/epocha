@@ -15,6 +15,8 @@ interface Props {
   noteId?: string;
   onExpand?: () => void;
   isRead?: boolean;
+  relatedEvents?: { title: string; date: string }[];
+  onScrollTo?: (title: string) => void;
 }
 
 const TAG_STYLES = [
@@ -44,7 +46,7 @@ function formatEventText(event: TimelineEvent): string {
 
 const TAGS_PREF_KEY = 'epocha-tags-expanded';
 
-export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure, noteId, onExpand, isRead }: Props) {
+export default function EventCard({ event, gradient, align, defaultExpanded = false, bookmarked, onBookmark, onFigureClick, activeFigure, noteId, onExpand, isRead, relatedEvents, onScrollTo }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [copied, setCopied] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(() => {
@@ -229,6 +231,26 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
               {note.trim() && (
                 <p className="text-[10px] text-slate-700 mt-1 text-right">auto-saved</p>
               )}
+            </div>
+          )}
+
+          {/* Related events */}
+          {relatedEvents && relatedEvents.length > 0 && onScrollTo && (
+            <div className="mt-4 border-t border-white/5 pt-4">
+              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Related Events</p>
+              <div className="space-y-1">
+                {relatedEvents.map(rel => (
+                  <button
+                    key={rel.title}
+                    onClick={e => { e.stopPropagation(); onScrollTo(rel.title); }}
+                    className="flex items-center gap-2 w-full text-left text-xs text-slate-500 hover:text-slate-300 transition-colors group"
+                  >
+                    <span className="text-slate-700 group-hover:text-slate-500 text-[10px]">→</span>
+                    <span className="truncate">{rel.title}</span>
+                    <span className="shrink-0 text-slate-700 text-[10px]">{rel.date}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
