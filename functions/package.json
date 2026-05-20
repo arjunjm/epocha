@@ -2,6 +2,7 @@
   "name": "epocha-functions",
   "version": "1.0.0",
   "type": "module",
+  "main": "dist/pregenerateTrigger.js",
   "scripts": {
     "build": "tsc",
     "dev": "func start",
