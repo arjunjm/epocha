@@ -117,6 +117,27 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
     setSearchQuery('');
   };
 
+  const getRelatedEvents = (event: import('../types').TimelineEvent, max = 3) => {
+    const myTags = new Set(event.tags ?? []);
+    const myFigures = new Set(event.figures ?? []);
+    return data.events
+      .filter(e => e !== event)
+      .map(e => ({
+        event: e,
+        score: (e.tags?.filter(t => myTags.has(t)).length ?? 0) * 2 +
+               (e.figures?.filter(f => myFigures.has(f)).length ?? 0) * 3,
+      }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, max)
+      .map(x => ({ title: x.event.title, date: x.event.date }));
+  };
+
+  const handleScrollTo = (title: string) => {
+    const el = document.querySelector(`[data-event-title="${CSS.escape(title)}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const noteId = (event: import('../types').TimelineEvent) =>
     `${data.topic}::${event.date}::${event.title}`;
 
@@ -621,7 +642,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
                           onFigureClick={handleFigureClick} activeFigure={figureFilter}
                           noteId={noteId(event)}
-                          onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)} />
+                          onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)}
+                          relatedEvents={getRelatedEvents(event)} onScrollTo={handleScrollTo} />
                       </div>
                       <div className="hidden lg:flex items-start justify-start pl-10 pt-5">
                         <DatePill date={event.date} gradient={gradient} />
@@ -638,7 +660,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                           onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
                           onFigureClick={handleFigureClick} activeFigure={figureFilter}
                           noteId={noteId(event)}
-                          onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)} />
+                          onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)}
+                          relatedEvents={getRelatedEvents(event)} onScrollTo={handleScrollTo} />
                       </div>
                     </>
                   )}
@@ -657,7 +680,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
                         onBookmark={e => { e.stopPropagation(); toggleBookmark(data.topic, event); toast.success(isBookmarked(data.topic, event) ? 'Bookmark removed' : '🔖 Bookmarked'); }}
                         onFigureClick={handleFigureClick} activeFigure={figureFilter}
                         noteId={noteId(event)}
-                        onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)} />
+                        onExpand={() => markRead(event.date, event.title)} isRead={isRead(event.date, event.title)}
+                        relatedEvents={getRelatedEvents(event)} onScrollTo={handleScrollTo} />
                     </div>
                   </div>
                 </div>
