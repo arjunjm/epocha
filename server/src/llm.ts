@@ -80,7 +80,7 @@ async function streamAnthropic(
 ): Promise<string> {
   const stream = getAnthropicClient().messages.stream({
     model: 'claude-haiku-4-5',
-    max_tokens: 6000,
+    max_tokens: 8192,
     system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: userMessage }],
   }, { signal });
@@ -116,7 +116,7 @@ async function streamAzure(
   const deployment = getSecret('azure-openai-deployment') ?? 'gpt-4o';
   const stream = await getAzureClient().chat.completions.create({
     model: deployment,
-    max_tokens: 6000,
+    max_tokens: 8192,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: systemPrompt },
