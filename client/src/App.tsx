@@ -309,6 +309,7 @@ export default function App() {
         user={user}
         onSignIn={signIn}
         history={history}
+        onOpenLibrary={() => { setPage('saved'); setTimeline(null); setStatus({ loading: false }); }}
       />
 
       {/* Main content */}

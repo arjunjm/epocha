@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TOPIC_TAXONOMY, type TopicEntry } from '../data/topics';
-import type { CustomTopic } from '../types';
+import type { SavedTimeline } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
 import type { HistoryEntry } from '../hooks/useHistory';
 
@@ -12,26 +12,49 @@ interface Props {
   user?: AuthUser | null;
   onSignIn?: () => void;
   history?: HistoryEntry[];
+  onOpenLibrary?: () => void;
 }
 
-export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, onSignIn, history = [] }: Props) {
+export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, onSignIn, history = [], onOpenLibrary }: Props) {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['Philosophy', 'Science & Technology'])
   );
-  const [customTopics, setCustomTopics] = useState<CustomTopic[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newTopic, setNewTopic] = useState({ name: '', icon: '📌', label: '', start: '', end: '' });
-  const [adding, setAdding] = useState(false);
+  const [savedTimelines, setSavedTimelines] = useState<SavedTimeline[]>([]);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [openCollections, setOpenCollections] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (user) void fetchCustomTopics();
+    if (user) void fetchSaved();
+    else setSavedTimelines([]);
   }, [user]);
 
-  const fetchCustomTopics = async () => {
+  const fetchSaved = async () => {
+    setCollectionsLoading(true);
     try {
-      const res = await fetch('/api/topics/custom', { credentials: 'include' });
-      if (res.ok) setCustomTopics(await res.json() as CustomTopic[]);
+      const res = await fetch('/api/saved', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json() as SavedTimeline[];
+        setSavedTimelines(data);
+        // Auto-open first collection
+        const firstCol = data[0]?.collectionName ?? 'General';
+        setOpenCollections(new Set([firstCol]));
+      }
     } catch { /* ignore */ }
+    setCollectionsLoading(false);
+  };
+
+  const collections = savedTimelines.reduce<Record<string, SavedTimeline[]>>((acc, t) => {
+    const col = t.collectionName ?? 'General';
+    (acc[col] ??= []).push(t);
+    return acc;
+  }, {});
+
+  const toggleCollection = (name: string) => {
+    setOpenCollections(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
   };
 
   const toggleSection = (label: string) => {
@@ -75,37 +98,6 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
     return picks;
   })();
 
-  const handleAddCustomTopic = async () => {
-    if (!newTopic.name || !newTopic.label || !newTopic.start || !newTopic.end) return;
-    setAdding(true);
-    try {
-      const res = await fetch('/api/topics/custom', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newTopic.name,
-          icon: newTopic.icon || '📌',
-          items: [{ label: newTopic.label, topic: newTopic.label, start: newTopic.start, end: newTopic.end }],
-        }),
-      });
-      if (res.ok) {
-        const created = await res.json() as CustomTopic;
-        setCustomTopics(prev => [...prev, created]);
-        setNewTopic({ name: '', icon: '📌', label: '', start: '', end: '' });
-        setShowAddForm(false);
-      }
-    } catch { /* ignore */ }
-    setAdding(false);
-  };
-
-  const handleDeleteCustomTopic = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const res = await fetch(`/api/topics/custom/${id}`, { method: 'DELETE', credentials: 'include' });
-      if (res.ok) setCustomTopics(prev => prev.filter(t => t.id !== id));
-    } catch { /* ignore */ }
-  };
 
   return (
     <>
@@ -227,117 +219,99 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
             );
           })}
 
-          {/* Custom topics section */}
+          {/* Collections */}
           <div className="mt-2 border-t border-white/5 pt-2">
             <div className="flex items-center justify-between px-4 py-2.5">
               <div className="flex items-center gap-2.5">
-                <span className="text-base">📌</span>
-                <span className="text-xs font-semibold text-slate-400">My Topics</span>
+                <span className="text-base">📚</span>
+                <span className="text-xs font-semibold text-slate-400">Collections</span>
               </div>
-              {user ? (
+              {user && onOpenLibrary && (
                 <button
-                  onClick={() => setShowAddForm(s => !s)}
-                  className="w-5 h-5 rounded flex items-center justify-center text-slate-600 hover:text-amber-400 hover:bg-white/5 transition-colors text-sm"
-                  title="Add custom topic"
+                  onClick={() => { onOpenLibrary(); onClose(); }}
+                  className="text-[10px] text-slate-600 hover:text-amber-400 transition-colors"
+                  title="Manage collections"
                 >
-                  +
+                  Manage
                 </button>
-              ) : (
+              )}
+              {!user && (
                 <button onClick={onSignIn} className="text-[10px] text-amber-400/60 hover:text-amber-400 transition-colors">
                   Sign in
                 </button>
               )}
             </div>
 
-            {/* Add form */}
-            {showAddForm && user && (
-              <div className="px-4 pb-3 space-y-2 fade-up">
-                <input
-                  type="text" placeholder="Category name" value={newTopic.name}
-                  onChange={e => setNewTopic(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs placeholder-slate-700 focus:outline-none focus:border-amber-500/40"
-                />
-                <input
-                  type="text" placeholder="Topic label" value={newTopic.label}
-                  onChange={e => setNewTopic(p => ({ ...p, label: e.target.value }))}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs placeholder-slate-700 focus:outline-none focus:border-amber-500/40"
-                />
-                <div className="flex gap-1.5">
-                  <input
-                    type="text" placeholder="From year" value={newTopic.start}
-                    onChange={e => setNewTopic(p => ({ ...p, start: e.target.value }))}
-                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs placeholder-slate-700 focus:outline-none focus:border-amber-500/40"
-                  />
-                  <input
-                    type="text" placeholder="To year" value={newTopic.end}
-                    onChange={e => setNewTopic(p => ({ ...p, end: e.target.value }))}
-                    className="flex-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-xs placeholder-slate-700 focus:outline-none focus:border-amber-500/40"
-                  />
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => void handleAddCustomTopic()}
-                    disabled={adding}
-                    className="flex-1 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold transition-colors disabled:opacity-50"
-                  >
-                    {adding ? 'Adding…' : 'Add'}
-                  </button>
-                  <button
-                    onClick={() => setShowAddForm(false)}
-                    className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/8 text-slate-500 text-xs transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Custom topic items */}
-            {customTopics.length === 0 && !showAddForm && (
-              <p className="px-4 py-2 text-[10px] text-slate-700">
-                {user ? 'Add your own topics above' : 'Sign in to add custom topics'}
+            {!user && (
+              <p className="px-4 pb-2 text-[10px] text-slate-700">
+                Save timelines to build your collection
               </p>
             )}
-            {customTopics.map(cat => (
-              <div key={cat.id}>
-                <div className="flex items-center gap-2.5 px-4 py-2">
-                  <span className="text-sm">{cat.icon}</span>
-                  <span className="text-xs font-medium text-slate-400 flex-1 truncate">{cat.name}</span>
+
+            {user && collectionsLoading && (
+              <p className="px-4 pb-2 text-[10px] text-slate-700">Loading…</p>
+            )}
+
+            {user && !collectionsLoading && Object.keys(collections).length === 0 && (
+              <p className="px-4 pb-2 text-[10px] text-slate-700">
+                No saved timelines yet — use 🔖 Save while viewing one
+              </p>
+            )}
+
+            {Object.entries(collections).map(([colName, timelines]) => {
+              const isOpen = openCollections.has(colName);
+              return (
+                <div key={colName}>
                   <button
-                    onClick={(e) => void handleDeleteCustomTopic(cat.id, e)}
-                    className="text-[10px] text-slate-700 hover:text-red-400 transition-colors"
+                    onClick={() => toggleCollection(colName)}
+                    className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-white/5 transition-colors group"
                   >
-                    ×
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-slate-600 text-[10px] flex-shrink-0">
+                        {isOpen ? '▾' : '▸'}
+                      </span>
+                      <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors truncate">
+                        {colName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-700 flex-shrink-0 ml-1">{timelines.length}</span>
                   </button>
+
+                  {isOpen && (
+                    <div className="pb-1">
+                      {timelines.map(t => {
+                        const isActive = activeTopic === t.topic;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => { onSelect(t.topic, t.startYear, t.endYear); onClose(); }}
+                            className={`
+                              w-full text-left px-4 py-2 pl-10 text-xs transition-all
+                              flex items-center justify-between group/item
+                              ${isActive
+                                ? 'text-amber-300 bg-amber-400/10 border-r-2 border-amber-400'
+                                : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
+                              }
+                            `}
+                          >
+                            <span className="leading-snug truncate">{t.title}</span>
+                            <span className={`text-[10px] shrink-0 ml-2 transition-opacity ${isActive ? 'text-amber-500 opacity-100' : 'text-slate-700 opacity-0 group-hover/item:opacity-100'}`}>
+                              {t.startYear}–{t.endYear}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {cat.items.map(item => {
-                  const isActive = activeTopic === item.topic;
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => { onSelect(item.topic, item.start, item.end); onClose(); }}
-                      className={`
-                        w-full text-left px-4 py-2 pl-10 text-xs transition-all
-                        flex items-center justify-between
-                        ${isActive
-                          ? 'text-amber-300 bg-amber-400/10 border-r-2 border-amber-400'
-                          : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
-                        }
-                      `}
-                    >
-                      <span className="leading-snug truncate">{item.label}</span>
-                      <span className="text-[10px] text-slate-700 ml-2 flex-shrink-0">{item.start}–{item.end}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         <div className="px-4 py-3 border-t border-white/5 flex-shrink-0">
           <p className="text-[10px] text-slate-700 leading-relaxed">
-            Sidebar topics load from cache instantly. Custom topics require sign-in.
+            Sidebar topics load from cache instantly.
           </p>
         </div>
       </aside>
