@@ -97,14 +97,18 @@ export default function App() {
     localStorage.setItem('epocha-theme', themeId);
   };
 
-  // Try to browse (public cached), fall back to generate (requires auth)
+  // Browse path — public, no sign-in required, does not count against daily limit
   const handleBrowse = async (topic: string, startYear: string, endYear: string) => {
     setStatus({ loading: true, message: `Looking up "${topic}"…` });
     setTimeline(null);
+    setStreamingMeta(null);
+    setStreamingEvents([]);
+    setTimelineWarning(undefined);
     setActiveTopic(topic);
     setPage('home');
 
     try {
+      // Try cache first (instant, no SSE needed)
       const params = new URLSearchParams({ topic, startYear, endYear });
       const res = await fetch(`/api/timeline/browse?${params}`);
       if (res.ok) {
@@ -116,36 +120,32 @@ export default function App() {
         saveSession(topic, startYear, endYear, data.timeline);
         return;
       }
-      // Not cached — need auth to generate
-      if (!user) {
-        setPendingTopic({ topic, start: startYear, end: endYear });
-        setStatus({ loading: false });
-        signIn();
-        return;
-      }
-      // Authenticated — generate
-      await handleGenerate(topic, startYear, endYear);
+      // Not in cache — generate publicly (no auth required, no rate limit)
+      await handleGeneratePublic(topic, startYear, endYear);
     } catch (err) {
       setStatus({ loading: false, error: err instanceof Error ? err.message : 'An error occurred' });
     }
   };
 
-  const handleGenerate = async (topic: string, startYear: string, endYear: string, skipCache = false) => {
-    if (!user) { setPendingTopic({ topic, start: startYear, end: endYear }); signIn(); return; }
+  // Public generation — sidebar/trending/chips, no auth, no daily limit
+  const handleGeneratePublic = async (topic: string, startYear: string, endYear: string) => {
     setStatus({ loading: true, message: `Researching "${topic}"…` });
     setTimeline(null);
     setStreamingMeta(null);
     setStreamingEvents([]);
     setTimelineWarning(undefined);
     setActiveTopic(topic);
-    setPage('home');
+    await streamTimeline(topic, startYear, endYear, { publicBrowse: true });
+  };
 
+  // Shared SSE streaming logic used by both public browse and authenticated generate
+  const streamTimeline = async (topic: string, startYear: string, endYear: string, extra?: Record<string, unknown>) => {
     try {
       const response = await fetch('/api/timeline', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, startYear, endYear, ...(skipCache && { skipCache: true }) }),
+        body: JSON.stringify({ topic, startYear, endYear, ...extra }),
       });
 
       if (!response.ok) {
@@ -189,8 +189,7 @@ export default function App() {
               pushTimelineUrl(topic, startYear, endYear);
               pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
               saveSession(topic, startYear, endYear, data.timeline);
-              toast.xp('+10 XP', 'Timeline generated');
-              void refresh();
+              if (!extra?.publicBrowse) { toast.xp('+10 XP', 'Timeline generated'); void refresh(); }
             } else if (data.type === 'error' && data.message) {
               throw new Error(data.message);
             }
@@ -202,6 +201,19 @@ export default function App() {
     } catch (err) {
       setStatus({ loading: false, error: err instanceof Error ? err.message : 'An unexpected error occurred' });
     }
+  };
+
+  // Custom generate — requires auth, counts against daily limit
+  const handleGenerate = async (topic: string, startYear: string, endYear: string, skipCache = false) => {
+    if (!user) { setPendingTopic({ topic, start: startYear, end: endYear }); signIn(); return; }
+    setStatus({ loading: true, message: `Researching "${topic}"…` });
+    setTimeline(null);
+    setStreamingMeta(null);
+    setStreamingEvents([]);
+    setTimelineWarning(undefined);
+    setActiveTopic(topic);
+    setPage('home');
+    await streamTimeline(topic, startYear, endYear, { ...(skipCache && { skipCache: true }) });
   };
 
   // After sign-in, resume any pending topic

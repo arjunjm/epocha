@@ -144,9 +144,10 @@ app.get('/api/timeline/browse', async (req, res) => {
 });
 
 // Authenticated generate endpoint — generates if not cached
-app.post('/api/timeline', auth, async (req, res) => {
+app.post('/api/timeline', optAuth, async (req, res) => {
   const authReq = req as AuthRequest;
-  const { topic, startYear: rawStart, endYear: rawEnd } = req.body as { topic: string; startYear?: string; endYear?: string };
+  const { topic, startYear: rawStart, endYear: rawEnd, publicBrowse, skipCache } =
+    req.body as { topic: string; startYear?: string; endYear?: string; publicBrowse?: boolean; skipCache?: boolean };
   const startYear = rawStart?.trim() ?? '';
   const endYear = rawEnd?.trim() ?? '';
 
@@ -155,8 +156,13 @@ app.post('/api/timeline', auth, async (req, res) => {
     return;
   }
 
-  const isAdmin = ADMIN_EMAILS.has(authReq.user!.email ?? '');
-  const { skipCache } = req.body as { skipCache?: boolean };
+  // Custom searches require authentication; public browse (sidebar/trending) does not
+  if (!publicBrowse && !authReq.user) {
+    res.status(401).json({ error: 'Sign in to generate custom timelines' });
+    return;
+  }
+
+  const isAdmin = ADMIN_EMAILS.has(authReq.user?.email ?? '');
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -182,15 +188,15 @@ app.post('/api/timeline', auth, async (req, res) => {
       send({ type: 'status', message: 'Loading from cache…' });
       await new Promise(r => setTimeout(r, 300));
       send({ type: 'complete', timeline: cached });
-      void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);
+      if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
       res.end();
       return;
     }
   }
 
-  // Rate limit only applies to actual LLM calls, not cache hits
-  if (!USE_STUB) {
-    const { allowed, remaining } = await checkAndIncrementRateLimit(authReq.user!.id);
+  // Rate limit only applies to authenticated custom searches (not public browse)
+  if (!USE_STUB && authReq.user && !publicBrowse) {
+    const { allowed, remaining } = await checkAndIncrementRateLimit(authReq.user.id);
     if (!allowed) {
       send({ type: 'error', message: `Daily limit of ${DAILY_LIMIT} timelines reached. Resets at midnight UTC.` });
       res.end();
@@ -244,13 +250,14 @@ app.post('/api/timeline', auth, async (req, res) => {
     const isIncomplete = timeline.events.length < 5;
     if (!isIncomplete) {
       await setCached(topic, startYear, endYear, timeline);
-      void trackSearch(topic, startYear, endYear);
+      // Only track search popularity for authenticated custom searches
+      if (authReq.user && !publicBrowse) void trackSearch(topic, startYear, endYear);
     }
 
     send({ type: 'complete', timeline, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
 
-    // Award XP for generating a new timeline
-    void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);
+    // Award XP for generating a new timeline (authenticated users only)
+    if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
 
     // Generate quiz questions in background (don't block response)
     void generateQuizAndCache(topic, startYear, endYear, timeline);
