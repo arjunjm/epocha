@@ -361,7 +361,7 @@ export default function App() {
       />
 
       {/* Main content */}
-      <main className="pt-[52px] pb-16 lg:pb-0 lg:pl-64 min-h-screen">
+      <main className="pt-[52px] pb-16 lg:pb-0 lg:pl-72 min-h-screen">
 
         {/* Discover page — public */}
         {page === 'discover' && (
