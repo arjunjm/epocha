@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -481,6 +481,18 @@ app.post('/api/admin/trigger/pregenerate', auth, adminAuth, ah(async (req, res) 
   });
   const body = await response.json() as Record<string, unknown>;
   res.status(response.status).json(body);
+}));
+
+// Cache contents
+app.get('/api/admin/cache', auth, adminAuth, ah(async (_req, res) => {
+  const entries = await getCacheContents();
+  res.json(entries);
+}));
+
+app.delete('/api/admin/cache/:key', auth, adminAuth, ah(async (req, res) => {
+  const key = decodeURIComponent(req.params.key as string);
+  await deleteCacheEntry(key);
+  res.json({ ok: true });
 }));
 
 // ── SPA fallback — with dynamic OG meta tags for shared timeline URLs ─────

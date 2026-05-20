@@ -5,6 +5,25 @@ interface JobStatus {
   logs: string[];
 }
 
+interface CacheEntry {
+  key: string;
+  topic: string;
+  startYear: string;
+  endYear: string;
+  ttlSeconds: number;
+  source: 'sidebar' | 'trending' | 'user';
+}
+
+function formatTtl(secs: number): string {
+  if (secs < 0) return 'expired';
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 interface TriggerCard {
   id: 'trending' | 'pregenerate';
   title: string;
@@ -32,6 +51,10 @@ export default function AdminPage() {
   const [forceRegen, setForceRegen] = useState<Record<string, boolean>>({ trending: false, pregenerate: false });
   const [triggering, setTriggering] = useState<Record<string, boolean>>({});
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
+  const [cache, setCache] = useState<CacheEntry[] | null>(null);
+  const [cacheLoading, setCacheLoading] = useState(false);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [cacheFilter, setCacheFilter] = useState<'all' | 'sidebar' | 'trending' | 'user'>('all');
   const logRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -93,6 +116,24 @@ export default function AdminPage() {
   const clearLogs = async () => {
     await fetch('/api/admin/logs', { method: 'DELETE', credentials: 'include' });
     setStatus(p => ({ ...p, logs: [] }));
+  };
+
+  const fetchCache = async () => {
+    setCacheLoading(true);
+    try {
+      const res = await fetch('/api/admin/cache', { credentials: 'include' });
+      if (res.ok) setCache(await res.json() as CacheEntry[]);
+    } catch { /* ignore */ }
+    setCacheLoading(false);
+  };
+
+  const deleteEntry = async (key: string) => {
+    setDeletingKey(key);
+    try {
+      await fetch(`/api/admin/cache/${encodeURIComponent(key)}`, { method: 'DELETE', credentials: 'include' });
+      setCache(prev => prev?.filter(e => e.key !== key) ?? null);
+    } catch { /* ignore */ }
+    setDeletingKey(null);
   };
 
   return (
@@ -209,6 +250,109 @@ export default function AdminPage() {
               })
             )}
           </div>
+        </div>
+
+        {/* Cache contents */}
+        <div className="glass rounded-2xl border border-white/8 overflow-hidden mt-6">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-slate-300">Cached Timelines</span>
+              {cache !== null && (
+                <span className="text-xs text-slate-600">{cache.length} entries</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Source filter */}
+              {cache !== null && (
+                <div className="flex gap-1">
+                  {(['all', 'sidebar', 'trending', 'user'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setCacheFilter(f)}
+                      className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                        cacheFilter === f
+                          ? 'bg-amber-400/20 text-amber-300'
+                          : 'text-slate-600 hover:text-slate-400'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => void fetchCache()}
+                disabled={cacheLoading}
+                className="text-xs text-slate-600 hover:text-amber-400 transition-colors disabled:opacity-40"
+              >
+                {cacheLoading ? 'Loading…' : 'Load'}
+              </button>
+            </div>
+          </div>
+
+          {cache === null ? (
+            <div className="px-5 py-6 text-xs text-slate-700 text-center italic">
+              Click Load to view the current Redis cache contents
+            </div>
+          ) : cache.length === 0 ? (
+            <div className="px-5 py-6 text-xs text-slate-700 text-center italic">
+              No timeline entries in cache
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[480px] overflow-y-auto scrollbar-thin">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-[#0d1120] border-b border-white/5">
+                  <tr>
+                    <th className="text-left px-4 py-2 text-slate-600 font-medium">Topic</th>
+                    <th className="text-left px-3 py-2 text-slate-600 font-medium">Period</th>
+                    <th className="text-left px-3 py-2 text-slate-600 font-medium">Source</th>
+                    <th className="text-left px-3 py-2 text-slate-600 font-medium">TTL</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {cache
+                    .filter(e => cacheFilter === 'all' || e.source === cacheFilter)
+                    .map(entry => {
+                      const ttlPct = Math.max(0, Math.min(100, (entry.ttlSeconds / (7 * 86400)) * 100));
+                      const ttlColor = ttlPct > 50 ? 'text-emerald-400/70' : ttlPct > 20 ? 'text-amber-400/70' : 'text-red-400/70';
+                      return (
+                        <tr key={entry.key} className="border-b border-white/3 hover:bg-white/3 group">
+                          <td className="px-4 py-2 text-slate-300 max-w-[220px] truncate" title={entry.topic}>
+                            {entry.topic}
+                          </td>
+                          <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                            {entry.startYear && entry.endYear ? `${entry.startYear} – ${entry.endYear}` : '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              entry.source === 'sidebar' ? 'bg-blue-500/10 text-blue-400/80' :
+                              entry.source === 'trending' ? 'bg-amber-500/10 text-amber-400/80' :
+                              'bg-white/5 text-slate-500'
+                            }`}>
+                              {entry.source}
+                            </span>
+                          </td>
+                          <td className={`px-3 py-2 font-mono whitespace-nowrap ${ttlColor}`}>
+                            {formatTtl(entry.ttlSeconds)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => void deleteEntry(entry.key)}
+                              disabled={deletingKey === entry.key}
+                              className="opacity-0 group-hover:opacity-100 text-[10px] text-slate-700 hover:text-red-400 transition-all disabled:opacity-40"
+                              title="Remove from cache"
+                            >
+                              {deletingKey === entry.key ? '…' : '✕'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
