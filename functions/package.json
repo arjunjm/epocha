@@ -12,7 +12,8 @@
     "@azure/functions": "^4.7.0",
     "@azure/identity": "^4.13.1",
     "@azure/keyvault-secrets": "^4.11.2",
-    "ioredis": "^5.10.1"
+    "ioredis": "^5.10.1",
+    "openai": "^6.38.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

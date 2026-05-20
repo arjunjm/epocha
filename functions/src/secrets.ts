@@ -4,7 +4,14 @@ import { SecretClient } from '@azure/keyvault-secrets';
 const KEY_VAULT_URL = process.env.KEY_VAULT_URL;
 const cache = new Map<string, string>();
 
-const SECRET_NAMES = ['anthropic-api-key', 'redis-url'];
+const SECRET_NAMES = [
+  'anthropic-api-key',
+  'redis-url',
+  'llm-provider',
+  'azure-openai-endpoint',
+  'azure-openai-key',
+  'azure-openai-deployment',
+];
 
 export async function loadSecrets(): Promise<void> {
   if (!KEY_VAULT_URL) {
