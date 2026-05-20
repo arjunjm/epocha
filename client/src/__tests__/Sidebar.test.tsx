@@ -91,7 +91,7 @@ describe('Sidebar', () => {
 
   it('shows recent history entries when history is provided', () => {
     const history = [
-      { topic: 'Ancient Rome', title: 'The Roman Empire', start: '27 BCE', end: '476 CE' },
+      { topic: 'Ancient Rome', title: 'The Roman Empire', start: '27 BCE', end: '476 CE', viewedAt: Date.now() },
     ];
     render(<Sidebar {...defaultProps} history={history} />);
     expect(screen.getByText(/recent/i)).toBeInTheDocument();
