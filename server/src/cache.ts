@@ -82,6 +82,26 @@ export async function setCached(
   }
 }
 
+const SEARCH_KEY = 'epocha:popular-topics';
+
+export async function trackSearch(topic: string, startYear: string, endYear: string): Promise<void> {
+  if (!redis) return; // only track in production (Redis present)
+  const member = `${topic}|${startYear}|${endYear}`;
+  try { await redis.zincrby(SEARCH_KEY, 1, member); }
+  catch { /* non-critical */ }
+}
+
+export async function getPopularTopics(limit = 30): Promise<Array<{ topic: string; startYear: string; endYear: string }>> {
+  if (!redis) return [];
+  try {
+    const members = await redis.zrevrange(SEARCH_KEY, 0, limit - 1);
+    return members.map(m => {
+      const [topic, startYear = '', endYear = ''] = m.split('|');
+      return { topic: topic ?? '', startYear, endYear };
+    }).filter(t => t.topic);
+  } catch { return []; }
+}
+
 export async function getCachedQuiz(
   topic: string, startYear: string, endYear: string
 ): Promise<QuizQuestion[] | null> {

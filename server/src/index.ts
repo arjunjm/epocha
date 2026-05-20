@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -228,6 +228,9 @@ app.post('/api/timeline', auth, async (req, res) => {
 
     await setCached(topic, startYear, endYear, timeline);
     send({ type: 'complete', timeline });
+
+    // Track search for popularity-based pre-caching
+    void trackSearch(topic, startYear, endYear);
 
     // Award XP for generating a new timeline
     void awardXP(authReq.user!.id, XP_REWARDS.VIEW_TIMELINE);

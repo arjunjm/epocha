@@ -25,7 +25,8 @@ Return ONLY a valid JSON object — no markdown, no code blocks, no preamble. Us
       "location": "Geographic location",
       "tags": ["thematic-tag-1", "thematic-tag-2"]
     }
-  ]
+  ],
+  "relatedTopics": ["Related Topic 1", "Related Topic 2", "Related Topic 3"]
 }
 
 Rules:
@@ -39,98 +40,104 @@ const QUIZ_PROMPT = `You are creating a multiple-choice quiz about a historical 
 Generate exactly 12 multiple-choice questions. Return ONLY a valid JSON array:
 [{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]`;
 
-const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const AI_SUGGEST_PROMPT = `You are curating topics for an educational historical timeline app.
+
+Suggest 15 topics that would make for compelling, educational timelines. Mix:
+- Major world events and wars not covered by basic history curricula
+- Rise and fall of civilisations or empires
+- Scientific or technological revolutions
+- Social and political movements
+- Contemporary history (last 50 years) that already has historical perspective
+- Underrepresented regions or cultures
+
+Return ONLY a JSON array of topic name strings, e.g.:
+["The Mongol Empire", "The Cold War Space Race", "The Green Revolution"]
+
+No years, no descriptions — just topic names. 15 topics.`;
+
+const TTL = 60 * 60 * 24 * 7;
+const POPULAR_KEY = 'epocha:popular-topics';
+const MAX_JOBS = 80;
 
 function cacheKey(topic: string, startYear: string, endYear: string): string {
   return `timeline:${topic.toLowerCase().trim().replace(/\s+/g, '-')}:${startYear}:${endYear}`;
 }
 
 function getProvider(): 'anthropic' | 'azure-openai' {
-  const p = (getSecret('llm-provider') || 'anthropic').toLowerCase();
-  return p === 'azure-openai' ? 'azure-openai' : 'anthropic';
+  return (getSecret('llm-provider') || 'anthropic').toLowerCase() === 'azure-openai'
+    ? 'azure-openai' : 'anthropic';
 }
 
-// ── LLM clients ────────────────────────────────────────────────────────────
+// ── Clients ────────────────────────────────────────────────────────────────
 
-let anthropicClient: Anthropic | null = null;
-function getAnthropicClient(): Anthropic {
-  if (!anthropicClient) anthropicClient = new Anthropic({ apiKey: getSecret('anthropic-api-key') });
-  return anthropicClient;
+let anthropic: Anthropic | null = null;
+let azure: AzureOpenAI | null = null;
+
+function getAnthropicClient() {
+  if (!anthropic) anthropic = new Anthropic({ apiKey: getSecret('anthropic-api-key') });
+  return anthropic;
 }
 
-let azureClient: AzureOpenAI | null = null;
-function getAzureClient(): AzureOpenAI {
-  if (!azureClient) {
-    azureClient = new AzureOpenAI({
-      endpoint: getSecret('azure-openai-endpoint'),
-      apiKey: getSecret('azure-openai-key'),
-      apiVersion: '2024-10-21',
-      deployment: getSecret('azure-openai-deployment') || 'gpt-4o',
-    });
-  }
-  return azureClient;
+function getAzureClient() {
+  if (!azure) azure = new AzureOpenAI({
+    endpoint: getSecret('azure-openai-endpoint'),
+    apiKey: getSecret('azure-openai-key'),
+    apiVersion: '2024-10-21',
+    deployment: getSecret('azure-openai-deployment') || 'gpt-4o',
+  });
+  return azure;
 }
 
-// ── Generation helpers ─────────────────────────────────────────────────────
+// ── Generation ─────────────────────────────────────────────────────────────
 
 async function generateTimeline(job: TopicJob): Promise<string | null> {
-  const userMessage = `Generate a detailed timeline for: "${job.topic}"\nTime period: ${job.startYear} to ${job.endYear}\n\nReturn only the JSON object.`;
+  const userMessage = job.startYear && job.endYear
+    ? `Generate a detailed timeline for: "${job.topic}"\nTime period: ${job.startYear} to ${job.endYear}\n\nReturn only the JSON object.`
+    : `Generate a detailed timeline for: "${job.topic}"\nChoose the most historically significant and complete time period. Return only the JSON object.`;
+
   let fullText = '';
 
   if (getProvider() === 'azure-openai') {
-    const deployment = getSecret('azure-openai-deployment') || 'gpt-4o';
     const stream = await getAzureClient().chat.completions.create({
-      model: deployment,
+      model: getSecret('azure-openai-deployment') || 'gpt-4o',
       max_tokens: 8192,
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userMessage }],
       stream: true,
     });
-    for await (const chunk of stream) {
-      fullText += chunk.choices[0]?.delta?.content ?? '';
-    }
+    for await (const chunk of stream) fullText += chunk.choices[0]?.delta?.content ?? '';
   } else {
     const stream = getAnthropicClient().messages.stream({
-      model: 'claude-haiku-4-5',
-      max_tokens: 8192,
+      model: 'claude-haiku-4-5', max_tokens: 8192,
       system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: userMessage }],
     });
     for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta')
         fullText += event.delta.text;
-      }
     }
   }
 
   const stripped = fullText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-  const jsonMatch = stripped.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
+  const match = stripped.match(/\{[\s\S]*\}/);
+  if (!match) return null;
   try {
-    const timeline = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(timeline.events) || timeline.events.length < 5) return null;
-    timeline.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) =>
-      (a.sortYear ?? 0) - (b.sortYear ?? 0));
-    return JSON.stringify(timeline);
+    const t = JSON.parse(match[0]);
+    if (!Array.isArray(t.events) || t.events.length < 5) return null;
+    t.events.sort((a: { sortYear?: number }, b: { sortYear?: number }) => (a.sortYear ?? 0) - (b.sortYear ?? 0));
+    return JSON.stringify(t);
   } catch { return null; }
 }
 
 async function generateQuiz(timelineJson: string): Promise<string | null> {
-  const timeline = JSON.parse(timelineJson);
-  const summary = {
-    topic: timeline.topic, period: timeline.period,
-    events: (timeline.events ?? []).map((e: { date: string; title: string; summary: string; figures?: string[]; location?: string }) => ({
-      date: e.date, title: e.title, summary: e.summary, figures: e.figures, location: e.location,
-    })),
-  };
+  const t = JSON.parse(timelineJson);
+  const summary = { topic: t.topic, period: t.period, events: t.events?.map((e: { date: string; title: string; summary: string; figures?: string[]; location?: string }) => ({ date: e.date, title: e.title, summary: e.summary, figures: e.figures, location: e.location })) };
   const userMessage = `Generate 12 quiz questions for:\n${JSON.stringify(summary)}`;
-
   let text = '';
+
   if (getProvider() === 'azure-openai') {
-    const deployment = getSecret('azure-openai-deployment') || 'gpt-4o';
     const res = await getAzureClient().chat.completions.create({
-      model: deployment, max_tokens: 4096,
+      model: getSecret('azure-openai-deployment') || 'gpt-4o', max_tokens: 4096,
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: QUIZ_PROMPT }, { role: 'user', content: userMessage }],
     });
@@ -144,41 +151,110 @@ async function generateQuiz(timelineJson: string): Promise<string | null> {
     text = res.content[0]?.type === 'text' ? res.content[0].text : '';
   }
 
-  const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-  const match = stripped.match(/\[[\s\S]*\]/);
+  const match = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').match(/\[[\s\S]*\]/);
   if (!match) return null;
   try {
-    const questions = JSON.parse(match[0]);
-    return Array.isArray(questions) && questions.length > 0 ? JSON.stringify(questions) : null;
+    const q = JSON.parse(match[0]);
+    return Array.isArray(q) && q.length > 0 ? JSON.stringify(q) : null;
   } catch { return null; }
+}
+
+// ── AI topic suggestions ───────────────────────────────────────────────────
+
+async function fetchAISuggestedTopics(log: (m: string) => void): Promise<TopicJob[]> {
+  try {
+    let text = '';
+    if (getProvider() === 'azure-openai') {
+      const res = await getAzureClient().chat.completions.create({
+        model: getSecret('azure-openai-deployment') || 'gpt-4o', max_tokens: 512,
+        messages: [{ role: 'user', content: AI_SUGGEST_PROMPT }],
+      });
+      text = res.choices[0]?.message?.content ?? '';
+    } else {
+      const res = await getAnthropicClient().messages.create({
+        model: 'claude-haiku-4-5', max_tokens: 512,
+        messages: [{ role: 'user', content: AI_SUGGEST_PROMPT }],
+      });
+      text = res.content[0]?.type === 'text' ? res.content[0].text : '';
+    }
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    const topics = JSON.parse(match[0]) as string[];
+    log(`[ai-suggest] Got ${topics.length} AI-suggested topics`);
+    return topics.filter(t => typeof t === 'string' && t.trim()).map(t => ({ topic: t.trim(), startYear: '', endYear: '' }));
+  } catch (err) {
+    log(`[ai-suggest] Failed: ${err}`);
+    return [];
+  }
+}
+
+// ── Queue builder ──────────────────────────────────────────────────────────
+
+async function buildJobQueue(redis: Redis, log: (m: string) => void): Promise<TopicJob[]> {
+  const seen = new Set<string>();
+  const jobs: TopicJob[] = [];
+
+  const add = (job: TopicJob) => {
+    const key = cacheKey(job.topic, job.startYear, job.endYear);
+    if (!seen.has(key) && jobs.length < MAX_JOBS) {
+      seen.add(key);
+      jobs.push(job);
+    }
+  };
+
+  // Phase 1: popular user searches + their related topics
+  try {
+    const popular = await redis.zrevrange(POPULAR_KEY, 0, 29);
+    log(`[queue] ${popular.length} popular topics from search history`);
+    for (const member of popular) {
+      const [topic, startYear = '', endYear = ''] = member.split('|');
+      if (!topic) continue;
+      const job = { topic, startYear, endYear };
+      add(job);
+
+      // Pull related topics from cached timeline if available
+      const cached = await redis.get(cacheKey(topic, startYear, endYear));
+      if (cached) {
+        try {
+          const t = JSON.parse(cached) as { relatedTopics?: string[] };
+          for (const rel of t.relatedTopics ?? []) {
+            add({ topic: rel, startYear: '', endYear: '' });
+          }
+        } catch { /* ignore */ }
+      }
+    }
+  } catch (err) { log(`[queue] Popular topics error: ${err}`); }
+
+  // Phase 2: AI-suggested topics
+  const aiTopics = await fetchAISuggestedTopics(log);
+  for (const job of aiTopics) add(job);
+
+  // Phase 3: sidebar topics (always keep these fresh)
+  for (const job of ALL_TOPICS) add(job);
+
+  log(`[queue] Total unique jobs: ${jobs.length}`);
+  return jobs;
 }
 
 // ── Shared run logic ───────────────────────────────────────────────────────
 
-async function runPreGeneration(jobs: TopicJob[], log: (msg: string) => void, warn: (msg: string) => void) {
+async function runPreGeneration(
+  overrideJobs: TopicJob[] | null,
+  log: (m: string) => void,
+  warn: (m: string) => void
+) {
   await loadSecrets();
-  // Reset clients so they pick up freshly loaded secrets
-  anthropicClient = null;
-  azureClient = null;
+  anthropic = null; azure = null;
 
   const redisUrl = getSecret('redis-url');
-  if (!redisUrl) { warn('Missing redis-url secret'); return { generated: 0, skipped: 0, failed: 0 }; }
+  if (!redisUrl) { warn('Missing redis-url'); return; }
 
   const provider = getProvider();
   log(`[llm] Provider: ${provider}`);
 
-  if (provider === 'azure-openai' && !getSecret('azure-openai-key')) {
-    warn('Missing azure-openai-key secret'); return { generated: 0, skipped: 0, failed: 0 };
-  }
-  if (provider === 'anthropic' && !getSecret('anthropic-api-key')) {
-    warn('Missing anthropic-api-key secret'); return { generated: 0, skipped: 0, failed: 0 };
-  }
+  const redis = new Redis(redisUrl, { tls: redisUrl.startsWith('rediss://') ? {} : undefined, connectTimeout: 5000, maxRetriesPerRequest: 2 });
 
-  const redis = new Redis(redisUrl, {
-    tls: redisUrl.startsWith('rediss://') ? {} : undefined,
-    connectTimeout: 5000,
-    maxRetriesPerRequest: 2,
-  });
+  const jobs = overrideJobs ?? await buildJobQueue(redis, log);
 
   let generated = 0, skipped = 0, failed = 0;
 
@@ -188,33 +264,33 @@ async function runPreGeneration(jobs: TopicJob[], log: (msg: string) => void, wa
       const ttl = await redis.ttl(key);
       if (ttl > 86400) { skipped++; log(`Skipped (fresh): ${job.topic}`); continue; }
 
-      log(`Generating: ${job.topic}`);
+      log(`Generating: ${job.topic}${job.startYear ? ` (${job.startYear}–${job.endYear})` : ''}`);
       const result = await generateTimeline(job);
+
       if (result) {
-        await redis.setex(key, TTL_SECONDS, result);
+        await redis.setex(key, TTL, result);
         generated++;
         log(`Cached: ${job.topic}`);
         try {
           const quizKey = `quiz:${key}`;
-          const quizTtl = await redis.ttl(quizKey);
-          if (quizTtl <= 86400) {
+          if (await redis.ttl(quizKey) <= 86400) {
             const quiz = await generateQuiz(result);
-            if (quiz) { await redis.setex(quizKey, TTL_SECONDS, quiz); log(`Quiz cached: ${job.topic}`); }
+            if (quiz) { await redis.setex(quizKey, TTL, quiz); }
           }
-        } catch (qErr) { warn(`Quiz gen failed for ${job.topic}: ${qErr}`); }
+        } catch (qErr) { warn(`Quiz failed for ${job.topic}: ${qErr}`); }
       } else {
         failed++;
-        warn(`Failed to generate: ${job.topic}`);
+        warn(`Failed (incomplete): ${job.topic}`);
       }
       await new Promise(r => setTimeout(r, 2000));
     } catch (err) {
       failed++;
-      warn(`Error generating ${job.topic}: ${err}`);
+      warn(`Error: ${job.topic}: ${err}`);
     }
   }
 
   redis.disconnect();
-  return { generated, skipped, failed };
+  log(`Complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`);
 }
 
 // ── Triggers ───────────────────────────────────────────────────────────────
@@ -222,35 +298,27 @@ async function runPreGeneration(jobs: TopicJob[], log: (msg: string) => void, wa
 app.timer('pregenerateTimelines', {
   schedule: '0 0 2 * * *',
   runOnStartup: false,
-  handler: async (_timer: unknown, context: InvocationContext) => {
-    context.log('Starting nightly timeline pre-generation...');
-    const { generated, skipped, failed } = await runPreGeneration(
-      ALL_TOPICS,
-      (m) => context.log(m),
-      (m) => context.warn(m)
-    );
-    context.log(`Complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`);
+  handler: async (_t: unknown, ctx: InvocationContext) => {
+    ctx.log('Starting nightly pre-generation...');
+    await runPreGeneration(null, m => ctx.log(m), m => ctx.warn(m));
   },
 });
 
 app.http('pregenerateManual', {
   methods: ['POST'],
   authLevel: 'function',
-  handler: async (request, context) => {
-    context.log('Manual pre-generation triggered');
+  handler: async (request, ctx) => {
+    ctx.log('Manual pre-generation triggered');
     const body = await request.json().catch(() => ({}) as Record<string, unknown>);
     const topicFilter = (body as { topics?: string[] }).topics;
-    const jobs = topicFilter ? ALL_TOPICS.filter(j => topicFilter.includes(j.topic)) : ALL_TOPICS;
-    context.log(`Queued ${jobs.length} topics`);
+    const overrideJobs = topicFilter
+      ? ALL_TOPICS.filter(j => topicFilter.includes(j.topic))
+      : null; // null = use full dynamic queue
 
-    void runPreGeneration(jobs, (m) => context.log(m), (m) => context.warn(m))
-      .then(({ generated, skipped, failed }) =>
-        context.log(`Background complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`)
-      );
+    const jobCount = overrideJobs?.length ?? MAX_JOBS;
+    ctx.log(`Queued up to ${jobCount} topics`);
+    void runPreGeneration(overrideJobs, m => ctx.log(m), m => ctx.warn(m));
 
-    return {
-      status: 202,
-      jsonBody: { message: `Queued ${jobs.length} topics`, topics: jobs.map(j => j.topic) },
-    };
+    return { status: 202, jsonBody: { message: `Pre-generation started`, mode: topicFilter ? 'filtered' : 'full-dynamic-queue' } };
   },
 });
