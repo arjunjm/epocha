@@ -1,13 +1,16 @@
 /**
- * Parallel queue processor — polls 'epocha-pregenerate-jobs' every 2 minutes
+ * Parallel queue processor — polls 'epocha-pregenerate-jobs' aggressively
  * and processes up to 10 topics concurrently per invocation.
  *
  * Timer triggers are reliable on Consumption plan (unlike the Storage Queue
  * trigger's scale controller which has cross-region limitations).
  *
- * Throughput: 10 topics × every 2 min = ~8 min for 39 sidebar topics.
- * Each batch: LLM calls run concurrently so wall time ≈ slowest single call (~60s).
- * 2-minute interval gives a safe buffer so batches don't overlap.
+ * Schedule: every 10 seconds. Azure's blob lease ensures mutual exclusion —
+ * if a batch is still running when the next tick fires, that tick is skipped.
+ * The next invocation starts at the first tick AFTER the previous one finishes,
+ * so the gap between batches is at most 10 seconds regardless of batch duration.
+ *
+ * Throughput: 10 topics × ~10s gap = ~4.5 min for 39 sidebar topics.
  */
 import { app } from '@azure/functions';
 import { QueueServiceClient, type ReceivedMessageItem } from '@azure/storage-queue';
@@ -116,7 +119,7 @@ async function processOne(
 }
 
 app.timer('processPregenQueue', {
-  schedule: '0 */2 * * * *', // every 2 minutes — gives batches room to finish before next tick
+  schedule: '*/10 * * * * *', // every 10s — blob lease skips ticks while previous batch runs
   runOnStartup: false,
   handler: async (_t, ctx) => {
     await loadSecrets();
