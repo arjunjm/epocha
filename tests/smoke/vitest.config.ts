@@ -5,6 +5,7 @@ export default defineConfig({
     include: ['smoke.test.ts'],
     environment: 'node',
     testTimeout: 20_000,
-    reporters: ['verbose'],
+    reporters: ['verbose', 'json'],
+    outputFile: 'results.json',
   },
 });
