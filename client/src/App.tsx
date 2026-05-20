@@ -140,6 +140,7 @@ export default function App() {
 
   // Shared SSE streaming logic used by both public browse and authenticated generate
   const streamTimeline = async (topic: string, startYear: string, endYear: string, extra?: Record<string, unknown>) => {
+    let streamCompleted = false;
     try {
       const response = await fetch('/api/timeline', {
         method: 'POST',
@@ -181,6 +182,7 @@ export default function App() {
             } else if (data.type === 'event' && data.event) {
               setStreamingEvents(prev => [...prev, data.event!]);
             } else if (data.type === 'complete' && data.timeline) {
+              streamCompleted = true;
               setTimeline(data.timeline);
               setStreamingMeta(null);
               setStreamingEvents([]);
@@ -194,9 +196,15 @@ export default function App() {
               throw new Error(data.message);
             }
           } catch (parseErr) {
-            if (parseErr instanceof Error && parseErr.message !== 'Unexpected token') throw parseErr;
+            // Re-throw intentional errors; swallow JSON SyntaxErrors from partial lines
+            if (!(parseErr instanceof SyntaxError)) throw parseErr;
           }
         }
+      }
+
+      // Stream closed without a complete event (connection drop, server restart, etc.)
+      if (!streamCompleted) {
+        throw new Error('Connection closed before the timeline finished loading. Please try again.');
       }
     } catch (err) {
       setStatus({ loading: false, error: err instanceof Error ? err.message : 'An unexpected error occurred' });
