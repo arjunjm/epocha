@@ -298,6 +298,13 @@ jobs:
         env:
           AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: |
+          # Ensure container exists (idempotent — safe to run even if it already exists)
+          az storage container create \
+            --account-name "sttimelineappdev" \
+            --account-key "$AZURE_STORAGE_KEY" \
+            --name "app-releases" \
+            --public-access off 2>/dev/null || true
+
           echo '${{ github.run_id }}' > stable-run-id.txt
           az storage blob upload \
             --account-name "sttimelineappdev" \
