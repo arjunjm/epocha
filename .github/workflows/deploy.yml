@@ -98,8 +98,8 @@ jobs:
           cp server/package.json deploy/
           cp server/package-lock.json deploy/
           cp -r client/dist deploy/client/
-          # No node_modules — Azure Oryx installs them on Linux at deploy time
-          # (SCM_DO_BUILD_DURING_DEPLOYMENT=true + ORYX_DISABLE_TYPESCRIPT_BUILD=true)
+          # Include node_modules so the deploy is self-contained — no Oryx dependency
+          cp -r server/node_modules deploy/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
