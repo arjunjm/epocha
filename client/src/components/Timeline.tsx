@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EventCard from './EventCard';
 import QuizModal from './QuizModal';
 import KeyboardHelp from './KeyboardHelp';
@@ -10,6 +10,7 @@ import HeatmapView from './HeatmapView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useReadProgress } from '../hooks/useReadProgress';
+import { useCompletions } from '../hooks/useCompletions';
 import { toast } from '../utils/toast';
 import type { TimelineData } from '../types';
 import type { AuthUser } from '../hooks/useAuth';
@@ -72,6 +73,14 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, u
 
   const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
   const { markRead, isRead, readCount, allRead } = useReadProgress(data.topic, total);
+  const { addCompletion, hasCompleted } = useCompletions();
+
+  useEffect(() => {
+    if (allRead && !hasCompleted(data.topic, data.period)) {
+      addCompletion(data.topic, data.period);
+      toast.success(`🎓 ${data.topic} completed!`);
+    }
+  }, [allRead, data.topic, data.period, addCompletion, hasCompleted]);
 
   useKeyboardShortcuts({
     onQuiz:    () => setShowQuiz(true),
