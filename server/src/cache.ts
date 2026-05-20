@@ -77,12 +77,8 @@ export async function setCached(
       }
     }
     console.log(`[cache] Stored timeline for "${topic}"`);
-    // Index in trending set (score = timestamp for recency sorting)
-    if (redis) {
-      const meta = JSON.stringify({ topic, startYear, endYear, period: timeline.period });
-      void redis.zadd(TRENDING_KEY, Date.now(), meta)
-        .then(() => redis!.zremrangebyrank(TRENDING_KEY, 0, -(TRENDING_MAX + 1)));
-    }
+    // Note: trending set is written only by the Azure Function (pregenerateTrigger),
+    // not here, to avoid user searches polluting the Trending sidebar section.
   } catch (err) {
     console.warn('[cache] Failed to cache timeline:', err);
   }
@@ -164,4 +160,36 @@ export async function setCachedQuiz(
   } catch (err) {
     console.warn('[cache] Failed to cache quiz:', err);
   }
+}
+
+export async function deleteCached(topic: string, startYear: string, endYear: string): Promise<void> {
+  const key = cacheKey(topic, startYear, endYear);
+  try {
+    if (redis) await redis.del(key);
+    else memoryCache.delete(key);
+  } catch { /* non-critical */ }
+}
+
+// ── Admin job log (written by Azure Function, read by server admin routes) ──
+
+const ADMIN_LOG_KEY = 'epocha:admin:job-log';
+const ADMIN_RUNNING_KEY = 'epocha:admin:running';
+const ADMIN_LOG_MAX = 500;
+
+export async function getAdminLog(limit = 200): Promise<string[]> {
+  if (!redis) return [];
+  try { return await redis.lrange(ADMIN_LOG_KEY, -limit, -1); }
+  catch { return []; }
+}
+
+export async function isAdminRunning(): Promise<boolean> {
+  if (!redis) return false;
+  try { return (await redis.get(ADMIN_RUNNING_KEY)) === '1'; }
+  catch { return false; }
+}
+
+export async function clearAdminLog(): Promise<void> {
+  if (!redis) return;
+  try { await redis.del(ADMIN_LOG_KEY); }
+  catch { /* non-critical */ }
 }

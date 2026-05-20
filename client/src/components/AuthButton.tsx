@@ -5,9 +5,10 @@ interface Props {
   loading: boolean;
   onSignIn: () => void;
   onSignOut: () => void;
+  onAdmin?: () => void;
 }
 
-export default function AuthButton({ user, loading, onSignIn, onSignOut }: Props) {
+export default function AuthButton({ user, loading, onSignIn, onSignOut, onAdmin }: Props) {
   if (loading) {
     return <div className="w-20 h-7 rounded-full bg-white/5 animate-pulse" />;
   }
@@ -69,6 +70,14 @@ export default function AuthButton({ user, loading, onSignIn, onSignOut }: Props
                 />
               </div>
             </div>
+          )}
+          {user.isAdmin && onAdmin && (
+            <button
+              onClick={onAdmin}
+              className="w-full text-left px-3 py-2 text-xs text-amber-400/70 hover:text-amber-300 hover:bg-white/5 transition-colors border-b border-white/5"
+            >
+              ⚙ Admin Console
+            </button>
           )}
           <button
             onClick={onSignOut}

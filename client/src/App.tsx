@@ -13,6 +13,7 @@ import TimelineSkeleton from './components/TimelineSkeleton';
 import Toaster from './components/Toaster';
 import SurpriseButton from './components/SurpriseButton';
 import Paths from './components/Paths';
+import AdminPage from './components/AdminPage';
 import { toast } from './utils/toast';
 import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
@@ -352,7 +353,7 @@ export default function App() {
               <ProfileBadge user={user} onClick={() => setShowProfile(true)} />
             ) : null}
 
-            <AuthButton user={user} loading={authLoading} onSignIn={signIn} onSignOut={signOut} />
+            <AuthButton user={user} loading={authLoading} onSignIn={signIn} onSignOut={signOut} onAdmin={() => setPage('admin')} />
           </div>
         </div>
       </header>
@@ -401,6 +402,11 @@ export default function App() {
         {/* Saved timelines page */}
         {page === 'saved' && user && (
           <SavedTimelines onSelect={(topic, s, e) => { setPage('home'); void handleBrowse(topic, s, e); }} />
+        )}
+
+        {/* Admin page — admin users only */}
+        {page === 'admin' && user?.isAdmin && (
+          <AdminPage />
         )}
 
         {/* Home page */}
