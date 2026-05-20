@@ -111,6 +111,7 @@
 - [x] Continue Exploring / Next Era — "Next Era →" button at timeline footer pre-fills and loads the same topic for the immediately following time period (same span); seamlessly chains consecutive eras without returning to the home screen
 - [x] Export as HTML — "↓ HTML" button generates a self-contained single-file HTML document with dark-theme styling; all events with details/significance/figures/tags/personal notes embedded; fully offline-viewable; downloads as `topic-name.html`
 - [x] Related Events — expanded event cards show up to 3 related events from the same timeline (matched by shared tags × 2 + shared figures × 3 score); click any to smooth-scroll to it; only shown when there are actual matches
+- [x] Smart Topic Suggestions — sidebar shows "You might like" section after 2+ timelines viewed; picks unvisited topics from categories matching viewing history (most-viewed categories ranked first); appears between Recent and the main taxonomy
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
