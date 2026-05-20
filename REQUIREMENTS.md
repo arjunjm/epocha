@@ -52,8 +52,13 @@
 
 ## Testing
 - [x] Server unit tests — Vitest covering: `xpToLevel`/level thresholds, XP reward logic, quiz question randomisation, in-memory cache (get/set for timelines and quiz), rate-limit logic, all REST API routes (browse, auth/me, saved timelines CRUD, custom topics CRUD, marketplace, theme setter)
+- [x] Server auth tests — `requireAuth` / `optionalAuth` / `signToken` middleware: valid token, expired token, wrong secret, missing cookie
+- [x] Server LLM tests — `getProvider` default; JSON repair logic (well-formed, truncated arrays, markdown fences)
+- [x] Server route tests extended — `publicBrowse` path (no auth), 401 for unauthenticated custom searches, rate-limit SSE error, trending topics endpoint shape
 - [x] Client unit tests — Vitest + Testing Library covering: type utilities, `TimelineForm` (render, submit, trim, usage bar states), `ProfileBadge` (level, avatar, click), `QuizModal` (loading, questions, answer feedback, error), `Discover` (all topics, search, category filter)
+- [x] Client component tests extended — `Sidebar` (browse sections, topic selection, trending API, recent history, collections auth state, overlay), `MobileNav` (tab visibility by auth state, active styling, onNavigate), `FeaturedTimelines` (fetch mocking, card rendering, event count badge, onSelect)
 - [x] Tests run as a mandatory CI step (`test` job) before `build`; deploy jobs require passing tests
+- [x] Deployment smoke tests — `tests/smoke/smoke.test.ts` runs against the live Azure App Service after every successful `deploy` job; covers health, auth guard, browse cache hit/miss, publicBrowse SSE, trending array, SPA entry; 2-minute readiness retry loop before execution
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
