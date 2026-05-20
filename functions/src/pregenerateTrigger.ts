@@ -40,6 +40,22 @@ const QUIZ_PROMPT = `You are creating a multiple-choice quiz about a historical 
 Generate exactly 12 multiple-choice questions. Return ONLY a valid JSON array:
 [{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]`;
 
+const TRENDING_EVENTS_PROMPT = (date: string) => `You are curating current events for an educational historical timeline app.
+
+Today's date: ${date}
+
+Identify the 10 most significant contemporary events or ongoing situations from the past 3 years that are widely discussed worldwide right now. Focus on:
+- Active geopolitical conflicts or developments
+- Major political transitions or elections
+- Significant technological or economic shifts (AI, energy, markets)
+- Social movements with broad global impact
+- Major humanitarian or environmental crises
+
+Return ONLY a JSON array of 10 topic name strings, e.g.:
+["The Russia-Ukraine War", "Rise of Generative AI", "2024 US Presidential Election"]
+
+No years, no descriptions — just the 10 topic names.`;
+
 const AI_SUGGEST_PROMPT = `You are curating topics for an educational historical timeline app.
 
 Suggest 15 topics that would make for compelling, educational timelines. Mix:
@@ -190,6 +206,34 @@ async function fetchAISuggestedTopics(log: (m: string) => void): Promise<TopicJo
 
 // ── Queue builder ──────────────────────────────────────────────────────────
 
+async function fetchTrendingCurrentEvents(log: (m: string) => void): Promise<TopicJob[]> {
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  try {
+    let text = '';
+    if (getProvider() === 'azure-openai') {
+      const res = await getAzureClient().chat.completions.create({
+        model: getSecret('azure-openai-deployment') || 'gpt-4o', max_tokens: 512,
+        messages: [{ role: 'user', content: TRENDING_EVENTS_PROMPT(date) }],
+      });
+      text = res.choices[0]?.message?.content ?? '';
+    } else {
+      const res = await getAnthropicClient().messages.create({
+        model: 'claude-haiku-4-5', max_tokens: 512,
+        messages: [{ role: 'user', content: TRENDING_EVENTS_PROMPT(date) }],
+      });
+      text = res.content[0]?.type === 'text' ? res.content[0].text : '';
+    }
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+    const topics = JSON.parse(match[0]) as string[];
+    log(`[trending-events] Got ${topics.length} topics for ${date}`);
+    return topics.filter(t => typeof t === 'string' && t.trim()).slice(0, 10).map(t => ({ topic: t.trim(), startYear: '', endYear: '' }));
+  } catch (err) {
+    log(`[trending-events] Failed: ${err}`);
+    return [];
+  }
+}
+
 async function buildJobQueue(redis: Redis, log: (m: string) => void): Promise<TopicJob[]> {
   const seen = new Set<string>();
   const jobs: TopicJob[] = [];
@@ -201,6 +245,10 @@ async function buildJobQueue(redis: Redis, log: (m: string) => void): Promise<To
       jobs.push(job);
     }
   };
+
+  // Phase 0: trending current events (contemporary, date-aware)
+  const trendingEvents = await fetchTrendingCurrentEvents(log);
+  for (const job of trendingEvents) add(job);
 
   // Phase 1: popular user searches + their related topics
   try {
@@ -325,5 +373,37 @@ app.http('pregenerateManual', {
     void runPreGeneration(overrideJobs, m => ctx.log(m), m => ctx.warn(m));
 
     return { status: 202, jsonBody: { message: `Pre-generation started`, mode: topicFilter ? 'filtered' : 'full-dynamic-queue' } };
+  },
+});
+
+// On-demand trigger: fetch trending current events from LLM and generate timelines
+app.http('generateTrendingEvents', {
+  methods: ['POST'],
+  authLevel: 'function',
+  handler: async (_request, ctx) => {
+    ctx.log('Generating trending current events...');
+    await loadSecrets();
+    anthropic = null; azure = null;
+
+    const redisUrl = getSecret('redis-url');
+    if (!redisUrl) return { status: 500, body: 'Missing redis-url' };
+
+    const provider = getProvider();
+    ctx.log(`[llm] Provider: ${provider}`);
+
+    const jobs = await fetchTrendingCurrentEvents(m => ctx.log(m));
+    if (jobs.length === 0) return { status: 500, body: 'No trending topics returned by LLM' };
+
+    ctx.log(`Queued ${jobs.length} trending topics: ${jobs.map(j => j.topic).join(', ')}`);
+
+    void runPreGeneration(jobs, m => ctx.log(m), m => ctx.warn(m));
+
+    return {
+      status: 202,
+      jsonBody: {
+        message: `Generating ${jobs.length} trending current event timelines`,
+        topics: jobs.map(j => j.topic),
+      },
+    };
   },
 });
