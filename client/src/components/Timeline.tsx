@@ -6,6 +6,7 @@ import TimeMachine from './TimeMachine';
 import BookmarksPanel from './BookmarksPanel';
 import FlashcardMode from './FlashcardMode';
 import InsightsPanel from './InsightsPanel';
+import HeatmapView from './HeatmapView';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useReadProgress } from '../hooks/useReadProgress';
@@ -66,6 +67,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
   const [showFlashcards, setShowFlashcards] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [figureFilter, setFigureFilter] = useState<string | null>(null);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
   const { markRead, isRead, readCount, allRead } = useReadProgress(data.topic, total);
@@ -257,6 +259,12 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
             className="px-4 py-1.5 rounded-full text-xs font-semibold text-teal-300 border border-teal-400/30 bg-teal-400/5 hover:bg-teal-400/10 transition-colors print:hidden"
           >
             📊 Insights
+          </button>
+          <button
+            onClick={() => setShowHeatmap(h => !h)}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${showHeatmap ? 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
+          >
+            🗺 Density
           </button>
           <button
             onClick={() => setShowQuiz(true)}
@@ -472,6 +480,27 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
         )}
       </div>
 
+      {/* Heatmap density view */}
+      {showHeatmap && (
+        <HeatmapView
+          events={data.events}
+          topic={data.topic}
+          period={data.period}
+          onEventClick={event => {
+            setShowHeatmap(false);
+            setTimeout(() => {
+              const cards = document.querySelectorAll('[data-event-title]');
+              for (const card of cards) {
+                if (card.getAttribute('data-event-title') === event.title) {
+                  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  break;
+                }
+              }
+            }, 100);
+          }}
+        />
+      )}
+
       {/* Timeline events — compact or full view */}
       {compact ? (
         <div className="space-y-1 py-4">
@@ -490,6 +519,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, user, onSignI
               return (
                 <div
                   key={`${event.date}-${index}`}
+                  data-event-title={event.title}
                   className="fade-up lg:grid lg:grid-cols-2 lg:gap-8 lg:mb-6"
                   style={{ animationDelay: `${index * 80}ms` }}
                 >
