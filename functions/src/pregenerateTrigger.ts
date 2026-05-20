@@ -234,7 +234,7 @@ async function fetchTrendingCurrentEvents(log: (m: string) => void): Promise<Top
   }
 }
 
-async function buildJobQueue(redis: Redis, log: (m: string) => void): Promise<TopicJob[]> {
+async function buildJobQueue(redis: Redis, log: (m: string) => void | Promise<void>): Promise<TopicJob[]> {
   const seen = new Set<string>();
   const jobs: TopicJob[] = [];
 
@@ -314,15 +314,19 @@ async function runPreGeneration(
   const rlog = async (msg: string) => {
     log(msg);
     try {
-      await redis.rpush(ADMIN_LOG_KEY, `[${ts()}] ${msg}`);
-      await redis.ltrim(ADMIN_LOG_KEY, -ADMIN_LOG_MAX, -1);
-    } catch { /* non-critical */ }
+      // Use pipeline to write and trim atomically in one round-trip
+      await redis.pipeline()
+        .rpush(ADMIN_LOG_KEY, `[${ts()}] ${msg}`)
+        .ltrim(ADMIN_LOG_KEY, -ADMIN_LOG_MAX, -1)
+        .exec();
+    } catch { /* non-critical — don't let log failures abort generation */ }
   };
 
   try {
     await redis.setex(ADMIN_RUNNING_KEY, 3600, '1');
 
-    const jobs = overrideJobs ?? await buildJobQueue(redis, m => { void rlog(m); });
+    // Await each log write in the queue builder so they land before process is killed
+    const jobs = overrideJobs ?? await buildJobQueue(redis, async m => { await rlog(m); });
 
     let generated = 0, skipped = 0, failed = 0;
 
@@ -333,7 +337,7 @@ async function runPreGeneration(
           const ttl = await redis.ttl(key);
           if (ttl > 86400) {
             skipped++;
-            void rlog(`Skipped (fresh, ${Math.round(ttl / 3600)}h left): ${job.topic}`);
+            await rlog(`Skipped (fresh, ${Math.round(ttl / 3600)}h left): ${job.topic}`);
             continue;
           }
         } else {
@@ -341,7 +345,7 @@ async function runPreGeneration(
           await redis.del(key);
         }
 
-        void rlog(`Generating: ${job.topic}${job.startYear ? ` (${job.startYear}–${job.endYear})` : ''}`);
+        await rlog(`Generating: ${job.topic}${job.startYear ? ` (${job.startYear}–${job.endYear})` : ''}`);
         const result = await generateTimeline(job);
 
         if (result) {
@@ -352,7 +356,7 @@ async function runPreGeneration(
           void redis.zadd('epocha:trending-topics', Date.now(), meta)
             .then(() => redis.zremrangebyrank('epocha:trending-topics', 0, -51));
           generated++;
-          void rlog(`Cached: ${job.topic}`);
+          await rlog(`Cached: ${job.topic}`);
           try {
             const quizKey = `quiz:${key}`;
             if (forceRegenerate || await redis.ttl(quizKey) <= 86400) {
@@ -360,19 +364,19 @@ async function runPreGeneration(
               const quiz = await generateQuiz(result);
               if (quiz) { await redis.setex(quizKey, TTL, quiz); }
             }
-          } catch (qErr) { void rlog(`Quiz failed for ${job.topic}: ${qErr}`); }
+          } catch (qErr) { await rlog(`Quiz failed for ${job.topic}: ${qErr}`); }
         } else {
           failed++;
-          void rlog(`Failed (incomplete response): ${job.topic}`);
+          await rlog(`Failed (incomplete response): ${job.topic}`);
         }
         await new Promise(r => setTimeout(r, 2000));
       } catch (err) {
         failed++;
-        void rlog(`Error: ${job.topic}: ${err}`);
+        await rlog(`Error: ${job.topic}: ${err}`);
       }
     }
 
-    void rlog(`Complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`);
+    await rlog(`Complete — generated: ${generated}, skipped: ${skipped}, failed: ${failed}`);
   } finally {
     await redis.del(ADMIN_RUNNING_KEY);
     redis.disconnect();
@@ -390,6 +394,10 @@ app.timer('pregenerateTimelines', {
   },
 });
 
+// HTTP batch limit: Consumption plan max timeout is 10 min (~15 topics at ~45s each).
+// Full pregeneration (80 topics) runs via the nightly timer trigger only.
+const HTTP_MAX_JOBS = 15;
+
 app.http('pregenerateManual', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -397,19 +405,21 @@ app.http('pregenerateManual', {
     ctx.log('Manual pre-generation triggered');
     const body = await request.json().catch(() => ({}) as Record<string, unknown>);
     const { topics: topicFilter, forceRegenerate = false } = body as { topics?: string[]; forceRegenerate?: boolean };
+
+    // When no topic filter, build queue from sidebar topics only (skip LLM phases to stay within timeout)
     const overrideJobs = topicFilter
       ? ALL_TOPICS.filter(j => topicFilter.includes(j.topic))
-      : null; // null = use full dynamic queue
+      : ALL_TOPICS.slice(0, HTTP_MAX_JOBS); // cap to fit within 10-min timeout
 
-    const jobCount = overrideJobs?.length ?? MAX_JOBS;
-    ctx.log(`Queued up to ${jobCount} topics (forceRegenerate=${forceRegenerate})`);
-    void runPreGeneration(overrideJobs, m => ctx.log(m), m => ctx.warn(m), forceRegenerate);
+    ctx.log(`Queued ${overrideJobs.length} topics (forceRegenerate=${forceRegenerate})`);
+    await runPreGeneration(overrideJobs, m => ctx.log(m), m => ctx.warn(m), forceRegenerate);
 
-    return { status: 202, jsonBody: { message: `Pre-generation started`, mode: topicFilter ? 'filtered' : 'full-dynamic-queue', forceRegenerate } };
+    return { status: 200, jsonBody: { message: `Pre-generation complete`, topics: overrideJobs.length, forceRegenerate } };
   },
 });
 
 // On-demand trigger: fetch trending current events from LLM and generate timelines
+// (~10 topics — fits within the 10-min timeout)
 app.http('generateTrendingEvents', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -432,12 +442,12 @@ app.http('generateTrendingEvents', {
 
     ctx.log(`Queued ${jobs.length} trending topics: ${jobs.map(j => j.topic).join(', ')}`);
 
-    void runPreGeneration(jobs, m => ctx.log(m), m => ctx.warn(m), forceRegenerate);
+    await runPreGeneration(jobs, m => ctx.log(m), m => ctx.warn(m), forceRegenerate);
 
     return {
-      status: 202,
+      status: 200,
       jsonBody: {
-        message: `Generating ${jobs.length} trending current event timelines`,
+        message: `Generated ${jobs.length} trending current event timelines`,
         topics: jobs.map(j => j.topic),
         forceRegenerate,
       },
