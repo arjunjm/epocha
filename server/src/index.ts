@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import Anthropic from '@anthropic-ai/sdk';
+import { streamGenerate, getProvider } from './llm.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -82,14 +82,6 @@ app.post('/api/auth/logout', (req, res) => {
   clearAuthCookie(res);
   res.json({ ok: true });
 });
-
-// ── Anthropic client ───────────────────────────────────────────────────────
-
-let client: Anthropic;
-function getAnthropicClient() {
-  if (!client) client = new Anthropic({ apiKey: getSecret('anthropic-api-key') || undefined });
-  return client;
-}
 
 const SYSTEM_PROMPT = `You are an expert historian and researcher. Generate a comprehensive, educational timeline for the given topic and time period.
 
@@ -197,58 +189,19 @@ app.post('/api/timeline', auth, async (req, res) => {
   const timeout = setTimeout(() => controller.abort(), 90_000);
 
   try {
-    const stream = getAnthropicClient().messages.stream({
-      model: 'claude-haiku-4-5',
-      max_tokens: 8192,
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: startYear && endYear
-        ? `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.`
-        : `Generate a detailed timeline for: "${topic}"\nChoose the most historically significant and complete time period for this topic. Return only the JSON object.`
-      }],
-    }, { signal: controller.signal });
+    const userMessage = startYear && endYear
+      ? `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.`
+      : `Generate a detailed timeline for: "${topic}"\nChoose the most historically significant and complete time period for this topic. Return only the JSON object.`;
 
-    let fullText = '';
-    let statusPhase = 0;
-    let metaSent = false;
-    const statusMessages = [
-      'Analyzing historical sources…',
-      'Identifying key events and turning points…',
-      'Researching figures and their contributions…',
-      'Compiling chronological narrative…',
-      'Finalizing timeline…',
-    ];
-
-    for await (const event of stream) {
-      if (event.type === 'content_block_start') {
-        if (event.content_block.type === 'thinking') {
-          send({ type: 'status', message: 'Thinking through the historical context…' });
-        } else if (event.content_block.type === 'text') {
-          send({ type: 'status', message: statusMessages[statusPhase % statusMessages.length] });
-          statusPhase++;
-        }
-      } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullText += event.delta.text;
-        if (fullText.length % 1000 < 20 && statusPhase < statusMessages.length) {
-          send({ type: 'status', message: statusMessages[statusPhase % statusMessages.length] });
-          statusPhase++;
-        }
-
-        // Emit metadata as soon as the events array starts — gives client a fast first render
-        if (!metaSent) {
-          const eventsIdx = fullText.indexOf('"events":[');
-          if (eventsIdx > 0) {
-            try {
-              const metaStr = fullText.slice(0, eventsIdx) + '"events":[]}';
-              const meta = JSON.parse(metaStr) as { topic?: string; period?: string; description?: string };
-              if (meta.topic && meta.period) {
-                send({ type: 'meta', topic: meta.topic, period: meta.period, description: meta.description ?? '' });
-                metaSent = true;
-              }
-            } catch { /* partial JSON — try again next chunk */ }
-          }
-        }
-      }
-    }
+    const fullText = await streamGenerate(
+      SYSTEM_PROMPT,
+      userMessage,
+      {
+        onStatus: (msg) => send({ type: 'status', message: msg }),
+        onMeta: (t, period, description) => send({ type: 'meta', topic: t, period, description }),
+      },
+      controller.signal
+    );
 
     const stripped = fullText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
@@ -285,7 +238,9 @@ app.post('/api/timeline', auth, async (req, res) => {
     if (message.includes('abort') || message.includes('AbortError')) {
       message = 'Request timed out after 90 seconds. Try a narrower time range.';
     } else if (message.includes('credit') || message.includes('billing') || message.includes('402') || message.includes('payment')) {
-      message = 'Anthropic API billing error — please add credits at console.anthropic.com.';
+      message = getProvider() === 'azure-openai'
+        ? 'Azure OpenAI quota exceeded — check your deployment limits in the Azure portal.'
+        : 'Anthropic API billing error — please add credits at console.anthropic.com.';
     }
     send({ type: 'error', message });
   } finally {
@@ -297,7 +252,7 @@ app.post('/api/timeline', auth, async (req, res) => {
 async function generateQuizAndCache(topic: string, startYear: string, endYear: string, timeline: TimelineData) {
   const existing = await getCachedQuiz(topic, startYear, endYear);
   if (existing && existing.length >= 5) return;
-  const questions = await generateQuizQuestions(getAnthropicClient(), timeline);
+  const questions = await generateQuizQuestions(timeline);
   if (questions.length > 0) {
     await setCachedQuiz(topic, startYear, endYear, questions);
     console.log(`[quiz] Cached ${questions.length} questions for "${topic}"`);
@@ -319,7 +274,7 @@ app.get('/api/quiz', optAuth, async (req, res) => {
     // Try to generate on-demand if timeline exists
     const timeline = await getCached(topic, startYear, endYear);
     if (!timeline) { res.status(404).json({ error: 'No timeline cached for this topic. View it first.' }); return; }
-    questions = await generateQuizQuestions(getAnthropicClient(), timeline);
+    questions = await generateQuizQuestions(timeline);
     if (questions.length > 0) await setCachedQuiz(topic, startYear, endYear, questions);
   }
 
@@ -504,7 +459,14 @@ async function start() {
   configurePassport();
   initCache();
 
-  if (!getSecret('anthropic-api-key')) console.warn('[warn] anthropic-api-key not set');
+  const provider = getProvider();
+  console.log(`[llm] Active provider: ${provider}`);
+  if (provider === 'azure-openai') {
+    if (!getSecret('azure-openai-endpoint')) console.warn('[warn] azure-openai-endpoint not set');
+    if (!getSecret('azure-openai-key')) console.warn('[warn] azure-openai-key not set');
+  } else {
+    if (!getSecret('anthropic-api-key')) console.warn('[warn] anthropic-api-key not set');
+  }
   if (!getSecret('google-client-id')) console.warn('[warn] google-client-id not set');
 
   app.listen(Number(PORT), '0.0.0.0', () => console.log(`Timeline server running at http://localhost:${PORT}`));

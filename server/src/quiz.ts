@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { generate } from './llm.js';
 import type { TimelineData, QuizQuestion } from './types.js';
 
 const QUIZ_PROMPT = `You are creating a multiple-choice quiz about a historical timeline.
@@ -21,10 +21,7 @@ Rules:
 - All 4 options should be plausible but only one correct
 - Keep questions concise and clear`;
 
-export async function generateQuizQuestions(
-  client: Anthropic,
-  timeline: TimelineData
-): Promise<QuizQuestion[]> {
+export async function generateQuizQuestions(timeline: TimelineData): Promise<QuizQuestion[]> {
   const timelineSummary = {
     topic: timeline.topic,
     period: timeline.period,
@@ -38,21 +35,13 @@ export async function generateQuizQuestions(
   };
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4096,
-      system: [{ type: 'text', text: QUIZ_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages: [{
-        role: 'user',
-        content: `Generate 12 quiz questions for this timeline:\n${JSON.stringify(timelineSummary, null, 2)}`,
-      }],
-    });
-
-    const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    const text = await generate(
+      QUIZ_PROMPT,
+      `Generate 12 quiz questions for this timeline:\n${JSON.stringify(timelineSummary, null, 2)}`
+    );
     const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
-
     const questions = JSON.parse(jsonMatch[0]) as QuizQuestion[];
     return Array.isArray(questions) ? questions.slice(0, 12) : [];
   } catch (err) {
@@ -62,6 +51,5 @@ export async function generateQuizQuestions(
 }
 
 export function pickRandomQuestions(questions: QuizQuestion[], count = 5): QuizQuestion[] {
-  const shuffled = [...questions].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  return [...questions].sort(() => Math.random() - 0.5).slice(0, count);
 }
