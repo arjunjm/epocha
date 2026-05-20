@@ -418,8 +418,8 @@ export default function App() {
                 <div className="fade-up w-full max-w-lg" style={{ animationDelay: '0.15s' }}>
                   <TimelineForm
                 onSubmit={handleGenerate}
-                remaining={user?.remaining}
-                dailyLimit={user?.dailyLimit}
+                remaining={user?.remaining ?? undefined}
+                dailyLimit={user?.dailyLimit ?? undefined}
               />
                   {!user && (
                     <p className="text-center text-xs text-slate-600 mt-3">
