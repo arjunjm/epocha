@@ -309,6 +309,62 @@ app.timer('pregenerateTimelines', {
   },
 });
 
+// Backfill trending set from existing Redis cache — no LLM calls, runs in seconds
+app.http('backfillTrending', {
+  methods: ['POST'],
+  authLevel: 'function',
+  handler: async (_request, ctx) => {
+    ctx.log('Backfilling trending topics from Redis cache...');
+
+    await loadSecrets();
+    const redisUrl = getSecret('redis-url');
+    if (!redisUrl) return { status: 500, body: 'Missing redis-url' };
+
+    const redis = new Redis(redisUrl, {
+      tls: redisUrl.startsWith('rediss://') ? {} : undefined,
+      connectTimeout: 5000,
+    });
+
+    // Scan all cached timeline keys
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, found] = await redis.scan(cursor, 'MATCH', 'timeline:*', 'COUNT', 100);
+      cursor = next;
+      keys.push(...found);
+    } while (cursor !== '0');
+
+    ctx.log(`Found ${keys.length} cached timeline keys`);
+
+    let indexed = 0;
+    const pipeline = redis.pipeline();
+
+    for (const key of keys) {
+      const raw = await redis.get(key);
+      if (!raw) continue;
+      try {
+        const { topic, period } = JSON.parse(raw) as { topic?: string; period?: string };
+        if (!topic || !period) continue;
+        // Parse startYear/endYear from cache key: timeline:slug:startYear:endYear
+        const parts = key.split(':');
+        const startYear = parts[2] ?? '';
+        const endYear = parts[3] ?? '';
+        const meta = JSON.stringify({ topic, startYear, endYear, period });
+        pipeline.zadd('epocha:trending-topics', Date.now() - indexed, meta); // slight offset to preserve order
+        indexed++;
+      } catch { /* skip malformed */ }
+    }
+
+    await pipeline.exec();
+    // Trim to 50
+    await redis.zremrangebyrank('epocha:trending-topics', 0, -(51));
+    redis.disconnect();
+
+    ctx.log(`Indexed ${indexed} topics into trending set`);
+    return { status: 200, jsonBody: { message: `Indexed ${indexed} topics into trending set`, total: keys.length } };
+  },
+});
+
 app.http('pregenerateManual', {
   methods: ['POST'],
   authLevel: 'function',
