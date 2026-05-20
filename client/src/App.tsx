@@ -39,6 +39,7 @@ export default function App() {
   const [colorScheme, setColorScheme] = useState<'dark' | 'light'>(() =>
     (localStorage.getItem('epocha-color-scheme') as 'dark' | 'light') ?? 'dark'
   );
+  const [streamingEvents, setStreamingEvents] = useState<import('./types').TimelineEvent[]>([]);
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Apply color scheme attribute
@@ -130,6 +131,7 @@ export default function App() {
     setStatus({ loading: true, message: `Researching "${topic}"…` });
     setTimeline(null);
     setStreamingMeta(null);
+    setStreamingEvents([]);
     setActiveTopic(topic);
     setPage('home');
 
@@ -165,15 +167,18 @@ export default function App() {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
-            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string };
+            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string; event?: import('./types').TimelineEvent };
             if (data.type === 'status' && data.message) {
               setStatus({ loading: true, message: data.message });
             } else if (data.type === 'meta' && data.topic) {
               setStreamingMeta({ topic: data.topic, period: data.period ?? '', description: data.description ?? '' });
               setStatus({ loading: true, message: 'Building timeline events…' });
+            } else if (data.type === 'event' && data.event) {
+              setStreamingEvents(prev => [...prev, data.event!]);
             } else if (data.type === 'complete' && data.timeline) {
               setTimeline(data.timeline);
               setStreamingMeta(null);
+              setStreamingEvents([]);
               setStatus({ loading: false });
               pushTimelineUrl(topic, startYear, endYear);
               pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
@@ -210,6 +215,7 @@ export default function App() {
   const handleReset = () => {
     setTimeline(null);
     setStreamingMeta(null);
+    setStreamingEvents([]);
     setActiveTopic(undefined);
     setStatus({ loading: false });
     clearSession();
@@ -432,8 +438,20 @@ export default function App() {
               </div>
             )}
 
-            {/* Streaming skeleton — shows header + skeleton cards while events generate */}
-            {isLoading && streamingMeta && (
+            {/* Progressive timeline — shows real events as they stream in */}
+            {isLoading && streamingMeta && streamingEvents.length > 0 && (
+              <div className="max-w-4xl mx-auto px-5 pb-24">
+                <Timeline
+                  data={{ topic: streamingMeta.topic, period: streamingMeta.period, description: streamingMeta.description, events: streamingEvents }}
+                  onReset={handleReset}
+                  user={user}
+                  onSignIn={signIn}
+                />
+              </div>
+            )}
+
+            {/* Skeleton header — shown after meta arrives but before first event */}
+            {isLoading && streamingMeta && streamingEvents.length === 0 && (
               <div className="max-w-4xl mx-auto px-5 pb-24">
                 <TimelineSkeleton
                   topic={streamingMeta.topic}

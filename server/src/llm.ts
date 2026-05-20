@@ -23,6 +23,7 @@ export function getProvider(): Provider {
 export interface StreamCallbacks {
   onStatus?: (message: string) => void;
   onMeta?: (topic: string, period: string, description: string) => void;
+  onEvent?: (event: Record<string, unknown>) => void;
 }
 
 // ── Clients ────────────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ async function streamAnthropic(
 ): Promise<string> {
   const stream = getAnthropicClient().messages.stream({
     model: 'claude-haiku-4-5',
-    max_tokens: 8192,
+    max_tokens: 4096,
     system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: userMessage }],
   }, { signal });
@@ -87,6 +88,7 @@ async function streamAnthropic(
   let fullText = '';
   let statusPhase = 0;
   let metaSent = false;
+  let eventsEmitted = 0;
 
   for await (const event of stream) {
     if (event.type === 'content_block_start' && event.content_block.type === 'text') {
@@ -99,6 +101,7 @@ async function streamAnthropic(
         statusPhase++;
       }
       if (!metaSent) metaSent = tryEmitMeta(fullText, callbacks);
+      eventsEmitted = tryEmitEvents(fullText, eventsEmitted, callbacks);
     }
   }
   return fullText;
@@ -113,7 +116,7 @@ async function streamAzure(
   const deployment = getSecret('azure-openai-deployment') ?? 'gpt-4o';
   const stream = await getAzureClient().chat.completions.create({
     model: deployment,
-    max_tokens: 8192,
+    max_tokens: 4096,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: systemPrompt },
@@ -125,6 +128,7 @@ async function streamAzure(
   let fullText = '';
   let statusPhase = 0;
   let metaSent = false;
+  let eventsEmitted = 0;
 
   callbacks.onStatus?.(STATUS_MESSAGES[0]!);
 
@@ -137,6 +141,7 @@ async function streamAzure(
         callbacks.onStatus?.(STATUS_MESSAGES[statusPhase]!);
       }
       if (!metaSent) metaSent = tryEmitMeta(fullText, callbacks);
+      eventsEmitted = tryEmitEvents(fullText, eventsEmitted, callbacks);
     }
   }
   return fullText;
@@ -172,6 +177,47 @@ export async function generate(
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+// Emit completed event objects as they appear in the partial JSON stream
+function tryEmitEvents(text: string, emittedCount: number, callbacks: StreamCallbacks): number {
+  if (!callbacks.onEvent) return emittedCount;
+  const arrayStart = text.indexOf('"events":[');
+  if (arrayStart < 0) return emittedCount;
+
+  let count = 0;
+  let pos = arrayStart + '"events":['.length;
+  let depth = 0;
+  let objStart = -1;
+  let inString = false;
+  let escaping = false;
+
+  while (pos < text.length) {
+    const ch = text[pos];
+    if (inString) {
+      if (escaping) { escaping = false; }
+      else if (ch === '\\') { escaping = true; }
+      else if (ch === '"') { inString = false; }
+    } else {
+      if (ch === '"') { inString = true; }
+      else if (ch === '{') { if (depth === 0) objStart = pos; depth++; }
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0 && objStart >= 0) {
+          count++;
+          if (count > emittedCount) {
+            try {
+              const obj = JSON.parse(text.slice(objStart, pos + 1)) as Record<string, unknown>;
+              if (obj['title'] && obj['date']) callbacks.onEvent!(obj);
+            } catch { /* partial — skip */ }
+          }
+          objStart = -1;
+        }
+      }
+    }
+    pos++;
+  }
+  return Math.max(emittedCount, count);
+}
 
 function tryEmitMeta(text: string, callbacks: StreamCallbacks): boolean {
   const eventsIdx = text.indexOf('"events":[');

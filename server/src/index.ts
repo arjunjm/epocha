@@ -108,9 +108,9 @@ Return ONLY a valid JSON object — no markdown, no code blocks, no preamble. Us
 }
 
 Rules:
-- Include 12-20 major events in chronological order (sorted by sortYear)
+- Include exactly 12 major events in chronological order (sorted by sortYear)
 - sortYear must be a number: negative for BCE, positive for CE
-- Details should be substantive, 3-5 paragraphs of educational content
+- Details should be 2-3 focused paragraphs of educational content
 - Tags should use kebab-case and be thematic (e.g., "philosophy", "political-change", "scientific-discovery")
 - relatedTopics: 4-5 topics closely related to this one that a learner might explore next
 - Always return ONLY the JSON object`;
@@ -199,6 +199,7 @@ app.post('/api/timeline', auth, async (req, res) => {
       {
         onStatus: (msg) => send({ type: 'status', message: msg }),
         onMeta: (t, period, description) => send({ type: 'meta', topic: t, period, description }),
+        onEvent: (event) => send({ type: 'event', event }),
       },
       controller.signal
     );
