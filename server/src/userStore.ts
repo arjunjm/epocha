@@ -12,7 +12,9 @@ const LOCAL_SAVED_PATH = path.join(__dirname, '../../data/saved-timelines.json')
 const LOCAL_TOPICS_PATH = path.join(__dirname, '../../data/custom-topics.json');
 
 const MAX_USERS = parseInt(process.env.MAX_USERS ?? '50', 10);
-const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT ?? '10', 10);
+export const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT ?? '10', 10);
+
+export const ADMIN_EMAILS = new Set(['arjunjm@gmail.com']);
 
 // ── Cosmos DB containers ───────────────────────────────────────────────────
 
@@ -107,6 +109,7 @@ export async function findOrCreateUser(profile: { id: string; email: string; nam
 export async function checkAndIncrementRateLimit(userId: string): Promise<{ allowed: boolean; remaining: number }> {
   const user = await findUser(userId);
   if (!user) return { allowed: false, remaining: 0 };
+  if (ADMIN_EMAILS.has(user.email)) return { allowed: true, remaining: 999 };
   const now = new Date();
   const resetAt = new Date(user.dailyResetAt);
   const sameDay = now.getUTCFullYear() === resetAt.getUTCFullYear()
@@ -235,4 +238,4 @@ export async function deleteCustomTopic(userId: string, id: string): Promise<boo
   return true;
 }
 
-export { DAILY_LIMIT, MAX_USERS };
+export { MAX_USERS };

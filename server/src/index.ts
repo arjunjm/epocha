@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { STUB_TIMELINE } from './stubData.js';
 import { passport, requireAuth, optionalAuth, signToken, setAuthCookie, clearAuthCookie, configurePassport } from './auth.js';
 import {
-  checkAndIncrementRateLimit, findUser, DAILY_LIMIT,
+  checkAndIncrementRateLimit, findUser, DAILY_LIMIT, ADMIN_EMAILS,
   awardXP, checkAndAwardDailyLogin, unlockTheme, setActiveTheme,
   getSavedTimelines, saveTimeline, deleteSavedTimeline,
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
@@ -62,14 +62,15 @@ app.get('/api/auth/me', auth, async (req, res) => {
   // Award daily login XP silently
   void checkAndAwardDailyLogin(user.id);
 
+  const isAdmin = ADMIN_EMAILS.has(user.email);
   res.json({
     id: user.id,
     name: user.name,
     email: user.email,
     picture: user.picture,
     dailyCount: user.dailyCount,
-    dailyLimit: DAILY_LIMIT,
-    remaining: Math.max(0, DAILY_LIMIT - user.dailyCount),
+    dailyLimit: isAdmin ? null : DAILY_LIMIT,
+    remaining: isAdmin ? null : Math.max(0, DAILY_LIMIT - user.dailyCount),
     xp: user.xp ?? 0,
     level: user.level ?? 1,
     activeTheme: user.activeTheme ?? 'midnight',
