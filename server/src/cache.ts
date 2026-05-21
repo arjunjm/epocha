@@ -287,3 +287,73 @@ export async function deleteCacheEntry(key: string): Promise<void> {
   try { await redis.del(key); }
   catch { /* non-critical */ }
 }
+
+// ── Search analytics ──────────────────────────────────────────────────────────
+
+const ANALYTICS_KEY = 'epocha:analytics:searches';
+const ANALYTICS_MAX = 2000;
+
+export interface SearchEvent {
+  topic: string;
+  userId?: string;
+  cacheHit: boolean;
+  publicBrowse: boolean;
+  ts: number;
+}
+
+export interface AnalyticsSummary {
+  totalSearches7d: number;
+  searchesToday: number;
+  cacheHitRate7d: number;
+  topTopics: { topic: string; count: number }[];
+  recentSearches: (SearchEvent & { time: string })[];
+}
+
+export async function logSearchEvent(event: SearchEvent): Promise<void> {
+  if (!redis) return;
+  try {
+    await redis.zadd(ANALYTICS_KEY, event.ts, JSON.stringify(event));
+    await redis.zremrangebyrank(ANALYTICS_KEY, 0, -(ANALYTICS_MAX + 1));
+  } catch { /* non-critical */ }
+}
+
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  if (!redis) return { totalSearches7d: 0, searchesToday: 0, cacheHitRate7d: 0, topTopics: [], recentSearches: [] };
+  try {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [allEntries, recentEntries] = await Promise.all([
+      redis.zrangebyscore(ANALYTICS_KEY, sevenDaysAgo, '+inf'),
+      redis.zrevrange(ANALYTICS_KEY, 0, 24),
+    ]);
+
+    const events = allEntries
+      .map(e => { try { return JSON.parse(e) as SearchEvent; } catch { return null; } })
+      .filter((e): e is SearchEvent => !!e);
+
+    const totalSearches7d = events.length;
+    const searchesToday = events.filter(e => e.ts >= todayStart.getTime()).length;
+    const cacheHits = events.filter(e => e.cacheHit).length;
+    const cacheHitRate7d = totalSearches7d > 0 ? Math.round((cacheHits / totalSearches7d) * 100) : 0;
+
+    const topicCounts: Record<string, number> = {};
+    for (const e of events) topicCounts[e.topic] = (topicCounts[e.topic] ?? 0) + 1;
+    const topTopics = Object.entries(topicCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([topic, count]) => ({ topic, count }));
+
+    const recentSearches = recentEntries
+      .map(e => {
+        try {
+          const ev = JSON.parse(e) as SearchEvent;
+          return { ...ev, time: new Date(ev.ts).toISOString() };
+        } catch { return null; }
+      })
+      .filter((e): e is SearchEvent & { time: string } => !!e);
+
+    return { totalSearches7d, searchesToday, cacheHitRate7d, topTopics, recentSearches };
+  } catch { return { totalSearches7d: 0, searchesToday: 0, cacheHitRate7d: 0, topTopics: [], recentSearches: [] }; }
+}

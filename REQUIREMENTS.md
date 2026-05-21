@@ -81,7 +81,14 @@
 ## Token & Cost Optimisation
 - [x] Anthropic prompt caching — `cache_control: { type: "ephemeral" }` on system prompts in timeline generation, quiz generation, and Azure Function pre-generation; reduces input token cost ~80% on repeated calls
 
+## Analytics
+- [x] Server-side search analytics — every timeline serve (browse cache hit, SSE cache hit, LLM generation) logs a `SearchEvent` to Redis sorted set `epocha:analytics:searches`; capped at 2000 entries; captures topic, userId (if authenticated), cacheHit flag, publicBrowse flag, timestamp
+- [x] Admin analytics dashboard — "Search Analytics" section in AdminPage shows: searches today, searches (7d), cache hit rate, top 10 topics bar chart, recent 25 searches with cache-hit indicator and auth/public label
+
 ## User Experience Polish
+- [x] Welcome modal — first-time visitors see a three-step intro modal (search, browse, level-up); gated by `epocha-welcomed` in localStorage; slides up from bottom on mobile, centred on desktop
+- [x] Share modal — "Share" button in timeline action bar opens a modal with: copyable link, pre-written tweet (topic, period, date range, event count, URL), X/LinkedIn share buttons, "Generated on Epocha" attribution
+- [x] Mobile-friendly action bar — timeline actions split into primary row (Quiz, Save, Share, New search) always visible and secondary row behind a "More ▼" toggle; eliminates the 15-button wall that wrapped badly on small screens
 - [x] XP toast notifications — module-level toast emitter (no context/prop drilling); "+10 XP · Timeline generated", "+5 XP · Timeline saved", "+N XP · Quiz: X/5 correct" shown as bottom-right popups; level-up fires "🎉 Level N! · [Title]" toast; auto-dismisses after 3.5s
 - [x] "Surprise me!" button — home screen and Discover page; shuffles TOPIC_TAXONOMY, fetches up to 10 topics from browse cache, loads first cached hit instantly; falls back to first topic if none cached
 - [x] Markdown export — "↓ Markdown" button in timeline action bar; generates structured .md with title, period, description, each event as H2 with date/location/summary/details/significance/figures/tags, related topics list; downloads as `topic-name.md`

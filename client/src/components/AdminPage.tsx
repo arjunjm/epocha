@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface AdminProgress {
   total: number;
@@ -10,6 +10,23 @@ interface JobStatus {
   running: boolean;
   logs: string[];
   progress?: AdminProgress;
+}
+
+interface SearchEvent {
+  topic: string;
+  userId?: string;
+  cacheHit: boolean;
+  publicBrowse: boolean;
+  ts: number;
+  time: string;
+}
+
+interface AnalyticsSummary {
+  totalSearches7d: number;
+  searchesToday: number;
+  cacheHitRate7d: number;
+  topTopics: { topic: string; count: number }[];
+  recentSearches: SearchEvent[];
 }
 
 interface CacheEntry {
@@ -62,6 +79,8 @@ export default function AdminPage() {
   const [cacheLoading, setCacheLoading] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [cacheFilter, setCacheFilter] = useState<'all' | 'sidebar' | 'trending' | 'user'>('all');
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -133,6 +152,15 @@ export default function AdminPage() {
     } catch { /* ignore */ }
     setCacheLoading(false);
   };
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch('/api/admin/analytics', { credentials: 'include' });
+      if (res.ok) setAnalytics(await res.json() as AnalyticsSummary);
+    } catch { /* ignore */ }
+    setAnalyticsLoading(false);
+  }, []);
 
   const deleteEntry = async (key: string) => {
     setDeletingKey(key);
@@ -381,6 +409,84 @@ export default function AdminPage() {
                     })}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+        {/* Search analytics */}
+        <div className="glass rounded-2xl border border-white/8 overflow-hidden mt-6">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+            <span className="text-xs font-semibold text-slate-300">Search Analytics</span>
+            <button
+              onClick={() => void fetchAnalytics()}
+              disabled={analyticsLoading}
+              className="text-xs text-slate-600 hover:text-amber-400 transition-colors disabled:opacity-40"
+            >
+              {analyticsLoading ? 'Loading…' : 'Load'}
+            </button>
+          </div>
+
+          {analytics === null ? (
+            <div className="px-5 py-6 text-xs text-slate-700 text-center italic">
+              Click Load to view search analytics (last 7 days)
+            </div>
+          ) : (
+            <div className="p-5 space-y-5">
+              {/* Stat cards */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Searches today', value: String(analytics.searchesToday) },
+                  { label: 'Searches (7d)', value: String(analytics.totalSearches7d) },
+                  { label: 'Cache hit rate', value: `${analytics.cacheHitRate7d}%` },
+                ].map(s => (
+                  <div key={s.label} className="rounded-xl bg-white/4 border border-white/8 px-3 py-3 text-center">
+                    <p className="text-white font-bold text-lg">{s.value}</p>
+                    <p className="text-slate-600 text-[10px] mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Top topics */}
+              {analytics.topTopics.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 mb-2">Top topics (7d)</p>
+                  <div className="space-y-1.5">
+                    {analytics.topTopics.map(({ topic, count }) => {
+                      const pct = Math.round((count / (analytics.topTopics[0]?.count ?? 1)) * 100);
+                      return (
+                        <div key={topic} className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-slate-300 text-[11px] truncate">{topic}</span>
+                              <span className="text-slate-600 text-[10px] ml-2 flex-shrink-0">{count}</span>
+                            </div>
+                            <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+                              <div className="h-full rounded-full bg-amber-400/50" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent searches */}
+              {analytics.recentSearches.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 mb-2">Recent searches</p>
+                  <div className="space-y-1">
+                    {analytics.recentSearches.map((s, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px]">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.cacheHit ? 'bg-emerald-500' : 'bg-amber-500'}`} title={s.cacheHit ? 'cache hit' : 'LLM generated'} />
+                        <span className="text-slate-300 flex-1 truncate">{s.topic}</span>
+                        <span className="text-slate-700 flex-shrink-0">{s.publicBrowse ? 'public' : 'auth'}</span>
+                        <span className="text-slate-700 flex-shrink-0 font-mono">{new Date(s.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] text-slate-700">● green = cache hit · ● amber = LLM generated</p>
+                </div>
+              )}
             </div>
           )}
         </div>

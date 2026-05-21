@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry, getAdminProgress } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry, getAdminProgress, logSearchEvent, getAnalyticsSummary } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -149,7 +149,7 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
   const cached = await getCached(topic, startYear, endYear);
   if (cached) {
     res.json({ cached: true, timeline: cached });
-    // Pre-warm related topics and next era in the background
+    void logSearchEvent({ topic, cacheHit: true, publicBrowse: true, ts: Date.now() });
     void enqueueRelatedTopics(cached, startYear, endYear);
   } else {
     res.status(404).json({ cached: false });
@@ -202,6 +202,7 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
       await new Promise(r => setTimeout(r, 300));
       send({ type: 'complete', timeline: cached });
       if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
+      void logSearchEvent({ topic, userId: authReq.user?.id, cacheHit: true, publicBrowse: !!publicBrowse, ts: Date.now() });
       void enqueueRelatedTopics(cached, startYear, endYear);
       res.end();
       return;
@@ -275,8 +276,8 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
 
     send({ type: 'complete', timeline, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
 
-    // Award XP for generating a new timeline (authenticated users only)
     if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
+    void logSearchEvent({ topic, userId: authReq.user?.id, cacheHit: false, publicBrowse: !!publicBrowse, ts: Date.now() });
 
     // Generate quiz questions in background (don't block response)
     void generateQuizAndCache(topic, startYear, endYear, timeline);
@@ -502,6 +503,12 @@ app.post('/api/admin/trigger/pregenerate', auth, adminAuth, ah(async (req, res) 
   });
   const body = await response.json() as Record<string, unknown>;
   res.status(response.status).json(body);
+}));
+
+// Search analytics
+app.get('/api/admin/analytics', auth, adminAuth, ah(async (_req, res) => {
+  const summary = await getAnalyticsSummary();
+  res.json(summary);
 }));
 
 // Cache contents

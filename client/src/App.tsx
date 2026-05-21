@@ -14,6 +14,7 @@ import Toaster from './components/Toaster';
 import SurpriseButton from './components/SurpriseButton';
 import Paths from './components/Paths';
 import AdminPage from './components/AdminPage';
+import WelcomeModal from './components/WelcomeModal';
 import { toast } from './utils/toast';
 import { useAuth } from './hooks/useAuth';
 import { useHistory } from './hooks/useHistory';
@@ -56,6 +57,9 @@ export default function App() {
   const [streamingEvents, setStreamingEvents] = useState<import('./types').TimelineEvent[]>([]);
   const [timelineWarning, setTimelineWarning] = useState<string | undefined>();
   const [collectionsRefreshKey, setCollectionsRefreshKey] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try { return !localStorage.getItem('epocha-welcomed'); } catch { return false; }
+  });
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const lastAttemptRef = useRef<(() => void) | null>(null);
@@ -312,6 +316,11 @@ export default function App() {
   return (
     <div className="min-h-screen hero-bg">
       <Toaster />
+
+      {/* Welcome modal — first-time visitors only */}
+      {showWelcome && !authLoading && (
+        <WelcomeModal onClose={() => setShowWelcome(false)} />
+      )}
 
       {/* Scroll progress bar */}
       {scrollProgress > 0 && (
