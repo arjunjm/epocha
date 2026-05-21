@@ -216,7 +216,8 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
       res.end();
       return;
     }
-    res.setHeader('X-RateLimit-Remaining', String(remaining));
+    // X-RateLimit-Remaining cannot be set here — flushHeaders() already sent
+    // headers to the client. The client reads remaining via /api/auth/me instead.
   }
 
   const controller = new AbortController();
