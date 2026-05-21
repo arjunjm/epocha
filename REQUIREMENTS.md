@@ -71,6 +71,10 @@
 
 ## Performance & UX
 - [x] Progressive streaming render — server emits a `meta` SSE event as soon as the topic/period/description are parsed from Claude's stream; client immediately shows the header and skeleton event cards, replacing the full-page spinner; full events appear when generation completes
+- [x] Instant skeleton on submit — authenticated `handleGenerate` shows the skeleton immediately on form submit (using topic + year range from the form), before the first SSE event; server `meta` event fills in the real period/description when it arrives (~5–10s later)
+- [x] Pre-flight cache check for authenticated searches — `handleGenerate` hits `GET /api/timeline/browse` before opening SSE; if cached, timeline loads instantly with no spinner; falls back to SSE on cache miss
+- [x] Retry button on stream failure — error screen shows "Try again →" button that re-runs the exact failed request; avoids losing the topic/year context; "New search" button still available to reset
+- [x] Generation progress timer — elapsed seconds shown during streaming (appears after 3s); estimated remaining time computed as `max(5, 45 – elapsed)s`; displayed in both the pre-meta spinner and the skeleton header
 - [x] Topic autocomplete — native `<datalist>` on the topic input surfaces all pre-built topic suggestions as the user types; zero API cost
 - [x] Reading time + theme count — timeline header shows "~N min read · X events · Y themes" computed from event word counts
 
