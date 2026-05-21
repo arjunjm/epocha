@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TimelineForm from './components/TimelineForm';
 import Timeline from './components/Timeline';
 import Sidebar from './components/Sidebar';
@@ -56,7 +56,19 @@ export default function App() {
   const [streamingEvents, setStreamingEvents] = useState<import('./types').TimelineEvent[]>([]);
   const [timelineWarning, setTimelineWarning] = useState<string | undefined>();
   const [collectionsRefreshKey, setCollectionsRefreshKey] = useState(0);
+  const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const lastAttemptRef = useRef<(() => void) | null>(null);
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
+
+  // Tick elapsed timer while a generation is in progress (Feature 9)
+  useEffect(() => {
+    if (!generationStartTime) { setElapsedSeconds(0); return; }
+    const id = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - generationStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [generationStartTime]);
 
   // Apply color scheme attribute
   useEffect(() => {
@@ -226,14 +238,41 @@ export default function App() {
   // Custom generate — requires auth, counts against daily limit
   const handleGenerate = async (topic: string, startYear: string, endYear: string, skipCache = false) => {
     if (!user) { setPendingTopic({ topic, start: startYear, end: endYear }); signIn(); return; }
-    setStatus({ loading: true, message: `Researching "${topic}"…` });
+    // Feature 8: store retry callback before any async work
+    lastAttemptRef.current = () => void handleGenerate(topic, startYear, endYear, skipCache);
+    setStatus({ loading: true, message: `Looking up "${topic}"…` });
     setTimeline(null);
-    setStreamingMeta(null);
+    // Feature 4: show skeleton immediately with form values; server meta event will override
+    setStreamingMeta({ topic, period: `${startYear} – ${endYear}`, description: '' });
     setStreamingEvents([]);
     setTimelineWarning(undefined);
     setActiveTopic(topic);
     setPage('home');
+    // Feature 9: start elapsed timer
+    setGenerationStartTime(Date.now());
+
+    // Feature 1: pre-flight cache check — instant load if already cached
+    if (!skipCache) {
+      try {
+        const params = new URLSearchParams({ topic, startYear, endYear });
+        const res = await fetch(`/api/timeline/browse?${params}`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json() as { cached: boolean; timeline: TimelineData };
+          setTimeline(data.timeline);
+          setStreamingMeta(null);
+          setGenerationStartTime(null);
+          setStatus({ loading: false });
+          pushTimelineUrl(topic, startYear, endYear);
+          pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
+          saveSession(topic, startYear, endYear, data.timeline);
+          toast.xp('+10 XP', 'Timeline generated'); void refresh();
+          return;
+        }
+      } catch { /* fall through to SSE */ }
+    }
+
     await streamTimeline(topic, startYear, endYear, { ...(skipCache && { skipCache: true }) });
+    setGenerationStartTime(null);
   };
 
   // After sign-in, resume any pending topic
@@ -257,6 +296,7 @@ export default function App() {
     setTimelineWarning(undefined);
     setActiveTopic(undefined);
     setStatus({ loading: false });
+    setGenerationStartTime(null);
     clearSession();
     window.history.replaceState(null, '', '/');
   };
@@ -517,13 +557,15 @@ export default function App() {
               </div>
             )}
 
-            {/* Skeleton header — shown after meta arrives but before first event */}
+            {/* Skeleton header — shown from submit until first event streams in */}
             {isLoading && streamingMeta && streamingEvents.length === 0 && (
               <div className="max-w-4xl mx-auto px-5 pb-24">
                 <TimelineSkeleton
                   topic={streamingMeta.topic}
                   period={streamingMeta.period}
                   description={streamingMeta.description}
+                  statusMessage={status.message}
+                  elapsedSeconds={elapsedSeconds}
                 />
               </div>
             )}
@@ -541,11 +583,18 @@ export default function App() {
                   <div className="absolute inset-0 flex items-center justify-center text-2xl">📜</div>
                 </div>
                 <p className="font-serif text-xl text-white mb-2">Researching…</p>
-                <p className="text-slate-400 text-sm max-w-xs text-center mb-6">{status.message}</p>
-                <div className="w-48 h-0.5 rounded-full overflow-hidden bg-white/5">
+                <p className="text-slate-400 text-sm max-w-xs text-center mb-2">{status.message}</p>
+                {/* Feature 9: elapsed / estimated remaining */}
+                {elapsedSeconds >= 3 && (
+                  <p className="text-slate-600 text-xs mb-4">
+                    {elapsedSeconds}s elapsed
+                    {elapsedSeconds < 45 ? ` · ~${Math.max(5, 45 - elapsedSeconds)}s remaining` : ''}
+                  </p>
+                )}
+                <div className="w-48 h-0.5 rounded-full overflow-hidden bg-white/5 mb-2">
                   <div className="h-full shimmer w-full" />
                 </div>
-                <button onClick={handleReset} className="mt-8 text-xs text-slate-600 hover:text-slate-400 transition-colors underline">
+                <button onClick={handleReset} className="mt-6 text-xs text-slate-600 hover:text-slate-400 transition-colors underline">
                   Cancel
                 </button>
               </div>
@@ -558,12 +607,23 @@ export default function App() {
                   <div className="text-4xl mb-4">⚠️</div>
                   <p className="font-serif text-xl text-white mb-2">Something went wrong</p>
                   <p className="text-red-300/80 text-sm mb-6">{error}</p>
-                  <button
-                    onClick={handleReset}
-                    className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-colors"
-                  >
-                    Try again
-                  </button>
+                  <div className="flex items-center justify-center gap-3">
+                    {/* Feature 8: retry the exact request that failed */}
+                    {lastAttemptRef.current && (
+                      <button
+                        onClick={() => lastAttemptRef.current?.()}
+                        className="px-6 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-sm font-medium transition-colors"
+                      >
+                        Try again →
+                      </button>
+                    )}
+                    <button
+                      onClick={handleReset}
+                      className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-colors"
+                    >
+                      New search
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

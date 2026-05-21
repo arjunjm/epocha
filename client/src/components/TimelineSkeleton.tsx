@@ -3,19 +3,41 @@ interface Props {
   period: string;
   description: string;
   eventCount?: number;
+  statusMessage?: string;
+  elapsedSeconds?: number;
 }
 
-export default function TimelineSkeleton({ topic, period, description, eventCount = 6 }: Props) {
+export default function TimelineSkeleton({ topic, period, description, eventCount = 6, statusMessage, elapsedSeconds = 0 }: Props) {
+  const showTimer = elapsedSeconds >= 3;
+  const remaining = Math.max(5, 45 - elapsedSeconds);
+
   return (
     <div className="timeline-print-container">
       <div className="pt-10 pb-16 text-center fade-up">
         <p className="text-amber-400 text-xs font-semibold tracking-[0.2em] uppercase mb-3">{period}</p>
         <h2 className="font-serif text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">{topic}</h2>
-        <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed mb-6">{description}</p>
-        <div className="inline-flex items-center gap-2">
+        {description ? (
+          <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed mb-6">{description}</p>
+        ) : (
+          <div className="h-4 w-64 rounded bg-white/5 animate-pulse mx-auto mb-6" />
+        )}
+        <div className="inline-flex items-center gap-2 mb-3">
           <div className="h-6 w-24 rounded-full bg-white/8 animate-pulse" />
           <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
         </div>
+        {/* Feature 9: status + elapsed time */}
+        {(statusMessage || showTimer) && (
+          <div className="mt-3 flex flex-col items-center gap-1">
+            {statusMessage && (
+              <p className="text-slate-500 text-xs">{statusMessage}</p>
+            )}
+            {showTimer && (
+              <p className="text-slate-600 text-xs">
+                {elapsedSeconds}s elapsed{elapsedSeconds < 45 ? ` · ~${remaining}s remaining` : ''}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Skeleton event cards */}
@@ -39,7 +61,7 @@ export default function TimelineSkeleton({ topic, period, description, eventCoun
         <div className="text-center py-4">
           <div className="inline-flex items-center gap-2 text-slate-600 text-xs">
             <div className="w-3 h-3 border border-slate-700 border-t-amber-500 rounded-full animate-spin" />
-            Generating remaining events…
+            Generating events…
           </div>
         </div>
       </div>
