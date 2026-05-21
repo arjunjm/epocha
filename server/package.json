@@ -15,6 +15,7 @@
     "@azure/cosmos": "^4.9.3",
     "@azure/identity": "^4.13.1",
     "@azure/keyvault-secrets": "^4.11.2",
+    "@azure/storage-queue": "^12.29.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",

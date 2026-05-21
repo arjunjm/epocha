@@ -211,6 +211,17 @@ resource secretCosmosKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   }
 }
 
+// Storage connection string — used by App Service to enqueue related topics
+// after each timeline serve. Set manually after deployment:
+//   az keyvault secret set --vault-name <kv> --name storage-connection-string --value "<conn>"
+resource secretStorageConn 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'storage-connection-string'
+  properties: {
+    value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${funcStorage.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
+  }
+}
+
 // ── Outputs (used in CI/CD and local dev setup) ───────────────────────────
 // ── Azure Function App (background pre-generation) ────────────────────────
 

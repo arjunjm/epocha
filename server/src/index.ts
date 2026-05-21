@@ -19,6 +19,7 @@ import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSea
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
+import { enqueueRelatedTopics } from './queue.js';
 
 const auth = requireAuth as express.RequestHandler;
 const optAuth = optionalAuth as express.RequestHandler;
@@ -148,6 +149,8 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
   const cached = await getCached(topic, startYear, endYear);
   if (cached) {
     res.json({ cached: true, timeline: cached });
+    // Pre-warm related topics and next era in the background
+    void enqueueRelatedTopics(cached, startYear, endYear);
   } else {
     res.status(404).json({ cached: false });
   }
@@ -199,6 +202,7 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
       await new Promise(r => setTimeout(r, 300));
       send({ type: 'complete', timeline: cached });
       if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
+      void enqueueRelatedTopics(cached, startYear, endYear);
       res.end();
       return;
     }
@@ -271,6 +275,9 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
 
     // Generate quiz questions in background (don't block response)
     void generateQuizAndCache(topic, startYear, endYear, timeline);
+
+    // Pre-warm related topics + next era so they're instant when the user explores further
+    if (!isIncomplete) void enqueueRelatedTopics(timeline, startYear, endYear);
 
   } catch (error) {
     let message = error instanceof Error ? error.message : 'An unknown error occurred';
