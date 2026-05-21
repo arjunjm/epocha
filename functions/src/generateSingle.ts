@@ -105,8 +105,18 @@ async function processOne(
 
       await queueClient.deleteMessage(queueMsg.messageId, queueMsg.popReceipt);
     } else {
-      // Leave message in queue — visibility timeout will expire and it re-appears for retry
-      await makePipeline(redis, `Failed (no result): ${job.topic} — will retry`);
+      // Make the message visible again in 30s for a fast retry rather than
+      // waiting for the full visibilityTimeout (typically caused by rate limits
+      // or the LLM returning incomplete JSON under load).
+      await makePipeline(redis, `Failed (no result): ${job.topic} — retrying in 30s`);
+      try {
+        await queueClient.updateMessage(
+          queueMsg.messageId,
+          queueMsg.popReceipt,
+          queueMsg.messageText,
+          30  // visible again in 30 seconds
+        );
+      } catch { /* message may have already expired — will retry naturally */ }
     }
   } finally {
     // Atomic decrement — safe to call concurrently from multiple workers
@@ -137,7 +147,7 @@ app.timer('processPregenQueue', {
 
     const received = await queueClient.receiveMessages({
       numberOfMessages: BATCH_SIZE,
-      visibilityTimeout: 300, // 5 min — covers generation + quiz time
+      visibilityTimeout: 120, // 2 min — covers generation + quiz; on failure we shorten to 30s explicitly
     });
 
     if (received.receivedMessageItems.length === 0) {
