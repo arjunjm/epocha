@@ -7,6 +7,7 @@ import BookmarksPanel from './BookmarksPanel';
 import FlashcardMode from './FlashcardMode';
 import InsightsPanel from './InsightsPanel';
 import HeatmapView from './HeatmapView';
+import ShareModal from './ShareModal';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useReadProgress } from '../hooks/useReadProgress';
@@ -60,7 +61,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
   const [quizResult, setQuizResult] = useState<{ score: number; total: number; xpEarned: number } | null>(null);
   const [collectionName, setCollectionName] = useState('General');
   const [showSaveForm, setShowSaveForm] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [activeTags, setActiveTags] = useState<Set<string>>(new Set());
   const [compact, setCompact] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -73,6 +73,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
   const [showInsights, setShowInsights] = useState(false);
   const [figureFilter, setFigureFilter] = useState<string | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
 
   const { bookmarks, isBookmarked, toggleBookmark, removeBookmark, clearBookmarks } = useBookmarks();
   const { markRead, isRead, readCount, allRead } = useReadProgress(data.topic, total);
@@ -312,12 +314,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
     toast.success('HTML exported');
   };
 
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const handleQuizComplete = (score: number, total: number, xpEarned: number) => {
     setQuizResult({ score, total, xpEarned });
     setShowQuiz(false);
@@ -361,121 +357,75 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
           </div>
         )}
 
-        {/* Action bar */}
-        <div className="inline-flex flex-wrap items-center justify-center gap-2">
-          <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
-            {total} events
-          </span>
-          <button
-            onClick={() => setTimeMachine(true)}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 transition-colors"
-          >
-            🕰 Time Machine
-          </button>
-          <button
-            onClick={() => setShowInsights(true)}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-teal-300 border border-teal-400/30 bg-teal-400/5 hover:bg-teal-400/10 transition-colors print:hidden"
-          >
-            📊 Insights
-          </button>
-          <button
-            onClick={() => setShowHeatmap(h => !h)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${showHeatmap ? 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
-          >
-            🗺 Density
-          </button>
-          <button
-            onClick={() => setShowQuiz(true)}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
-          >
-            🧠 Take Quiz
-          </button>
-          <button
-            onClick={() => setShowFlashcards(true)}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-cyan-300 border border-cyan-400/30 bg-cyan-400/5 hover:bg-cyan-400/10 transition-colors print:hidden"
-          >
-            🃏 Flashcards
-          </button>
-          {!saved ? (
-            <button
-              onClick={() => setShowSaveForm(s => !s)}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-300 border border-white/15 hover:border-white/25 hover:text-white transition-colors"
-            >
-              {saving ? 'Saving…' : '🔖 Save'}
-            </button>
-          ) : (
-            <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-400 border border-emerald-400/30 bg-emerald-400/5">
-              ✓ Saved
+        {/* Action bar — primary row always visible; secondary row toggles on mobile */}
+        <div className="print:hidden">
+          {/* Primary actions — always visible */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
+              {total} events
             </span>
-          )}
-          <button
-            onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery(''); }}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${showSearch ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
-            title="Search events"
-          >
-            🔍 Search
-          </button>
-          <button
-            onClick={() => setShowBookmarks(true)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${bookmarks.length > 0 ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
-            title="Bookmarks"
-          >
-            🔖 {bookmarks.length > 0 ? `${bookmarks.length} saved` : 'Bookmarks'}
-          </button>
-          <button
-            onClick={() => setCompact(c => !c)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border ${compact ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}
-            title="Toggle compact view (C)"
-          >
-            {compact ? '⊞ Full' : '≡ Compact'}
-          </button>
-          <button
-            onClick={() => void handleCopyLink()}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors print:hidden border border-white/10 hover:border-white/20 hover:text-white text-slate-400"
-          >
-            {copied ? '✓ Copied!' : '🔗 Share'}
-          </button>
-          <button
-            onClick={handlePrint}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
-          >
-            📄 PDF
-          </button>
-          <button
-            onClick={handleMarkdownExport}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
-          >
-            ↓ Markdown
-          </button>
-          <button
-            onClick={handleHtmlExport}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
-          >
-            ↓ HTML
-          </button>
-          <button
-            onClick={onReset}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors print:hidden"
-          >
-            ← New search
-          </button>
-          {user?.isAdmin && onRegenerateSkipCache && (
             <button
-              onClick={onRegenerateSkipCache}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 transition-colors print:hidden"
-              title="Bypass cache and regenerate from LLM"
+              onClick={() => setShowQuiz(true)}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
             >
-              ↺ Skip cache
+              🧠 Quiz
             </button>
+            {!saved ? (
+              <button
+                onClick={() => setShowSaveForm(s => !s)}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-300 border border-white/15 hover:border-white/25 hover:text-white transition-colors"
+              >
+                {saving ? 'Saving…' : '🔖 Save'}
+              </button>
+            ) : (
+              <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-emerald-400 border border-emerald-400/30 bg-emerald-400/5">
+                ✓ Saved
+              </span>
+            )}
+            <button
+              onClick={() => setShowShare(true)}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 transition-colors"
+            >
+              🔗 Share
+            </button>
+            <button
+              onClick={onReset}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors"
+            >
+              ← New search
+            </button>
+            {/* More toggle — all breakpoints */}
+            <button
+              onClick={() => setShowMoreActions(m => !m)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors border ${showMoreActions ? 'border-white/20 text-white bg-white/8' : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'}`}
+            >
+              {showMoreActions ? 'Less ▲' : 'More ▼'}
+            </button>
+          </div>
+
+          {/* Secondary actions — hidden until "More" toggled */}
+          {showMoreActions && (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2 fade-up">
+              <button onClick={() => setTimeMachine(true)} className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 transition-colors">🕰 Time Machine</button>
+              <button onClick={() => setShowInsights(true)} className="px-4 py-1.5 rounded-full text-xs font-semibold text-teal-300 border border-teal-400/30 bg-teal-400/5 hover:bg-teal-400/10 transition-colors">📊 Insights</button>
+              <button onClick={() => setShowHeatmap(h => !h)} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors border ${showHeatmap ? 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}>🗺 Density</button>
+              <button onClick={() => setShowFlashcards(true)} className="px-4 py-1.5 rounded-full text-xs font-semibold text-cyan-300 border border-cyan-400/30 bg-cyan-400/5 hover:bg-cyan-400/10 transition-colors">🃏 Flashcards</button>
+              <button onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery(''); }} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors border ${showSearch ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}>🔍 Search</button>
+              <button onClick={() => setShowBookmarks(true)} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors border ${bookmarks.length > 0 ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}>🔖 {bookmarks.length > 0 ? `${bookmarks.length} saved` : 'Bookmarks'}</button>
+              <button onClick={() => setCompact(c => !c)} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors border ${compact ? 'border-amber-500/40 text-amber-300 bg-amber-500/10' : 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'}`}>{compact ? '⊞ Full' : '≡ Compact'}</button>
+              <button onClick={handlePrint} className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors">📄 PDF</button>
+              <button onClick={handleMarkdownExport} className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors">↓ Markdown</button>
+              <button onClick={handleHtmlExport} className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors">↓ HTML</button>
+              {user?.isAdmin && onRegenerateSkipCache && (
+                <button onClick={onRegenerateSkipCache} className="px-4 py-1.5 rounded-full text-xs font-semibold text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 transition-colors" title="Bypass cache and regenerate from LLM">↺ Skip cache</button>
+              )}
+              <button onClick={() => setShowHelp(true)} className="px-2.5 py-1.5 rounded-full text-xs text-slate-700 border border-white/8 hover:border-white/15 hover:text-slate-400 transition-colors" title="Keyboard shortcuts (?)">?</button>
+            </div>
           )}
-          <button
-            onClick={() => setShowHelp(true)}
-            className="px-2.5 py-1.5 rounded-full text-xs text-slate-700 border border-white/8 hover:border-white/15 hover:text-slate-400 transition-colors print:hidden"
-            title="Keyboard shortcuts (?)"
-          >
-            ?
-          </button>
         </div>
+
+        {/* Print-only action hint */}
+        <div className="hidden print:block"></div>
 
         {/* Save form */}
         {showSaveForm && !saved && (
@@ -499,10 +449,17 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
         )}
         {saveError && <p className="mt-2 text-red-400 text-xs">{saveError}</p>}
 
-        {/* Social share */}
-        <div className="mt-4 flex justify-center gap-2 print:hidden">
-          <SocialShareButtons topic={data.topic} period={data.period} />
-        </div>
+        {/* Share modal */}
+        {showShare && (
+          <ShareModal
+            topic={data.topic}
+            period={data.period}
+            firstDate={data.events[0]?.date}
+            lastDate={data.events[data.events.length - 1]?.date}
+            eventCount={total}
+            onClose={() => setShowShare(false)}
+          />
+        )}
 
         {/* Event search */}
         {showSearch && (
@@ -816,41 +773,6 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
         />
       )}
     </div>
-  );
-}
-
-function SocialShareButtons({ topic, period }: { topic: string; period: string }) {
-  const url = encodeURIComponent(window.location.href);
-  const text = encodeURIComponent(`Exploring "${topic}" (${period}) on Epocha — fascinating historical timeline!`);
-  return (
-    <>
-      <a
-        href={`https://twitter.com/intent/tweet?text=${text}&url=${url}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium text-slate-500 border border-white/8 hover:border-white/20 hover:text-slate-300 transition-all"
-        title="Share on X (Twitter)"
-        onClick={e => e.stopPropagation()}
-      >
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.736-8.849L1.254 2.25H8.08l4.259 5.631 5.905-5.631zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-        </svg>
-        Share
-      </a>
-      <a
-        href={`https://www.linkedin.com/sharing/share-offsite/?url=${url}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium text-slate-500 border border-white/8 hover:border-white/20 hover:text-slate-300 transition-all"
-        title="Share on LinkedIn"
-        onClick={e => e.stopPropagation()}
-      >
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-        </svg>
-        Share
-      </a>
-    </>
   );
 }
 
