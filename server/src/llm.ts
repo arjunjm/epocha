@@ -78,8 +78,10 @@ async function streamAnthropic(
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<string> {
+  if (signal?.aborted) throw new Error('AbortError: request already aborted');
+
   const stream = getAnthropicClient().messages.stream({
-    model: 'claude-haiku-4-5',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 8192,
     system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: userMessage }],
@@ -91,6 +93,9 @@ async function streamAnthropic(
   let eventsEmitted = 0;
 
   for await (const event of stream) {
+    // Explicit abort check — SDK may not throw immediately when signal fires
+    if (signal?.aborted) throw new Error('AbortError: stream timed out');
+
     if (event.type === 'content_block_start' && event.content_block.type === 'text') {
       callbacks.onStatus?.(STATUS_MESSAGES[statusPhase % STATUS_MESSAGES.length]!);
       statusPhase++;
@@ -113,6 +118,8 @@ async function streamAzure(
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<string> {
+  if (signal?.aborted) throw new Error('AbortError: request already aborted');
+
   const deployment = getSecret('azure-openai-deployment') ?? 'gpt-4o';
   const stream = await getAzureClient().chat.completions.create({
     model: deployment,
@@ -133,6 +140,9 @@ async function streamAzure(
   callbacks.onStatus?.(STATUS_MESSAGES[0]!);
 
   for await (const chunk of stream) {
+    // Explicit abort check — SDK may not throw immediately when signal fires
+    if (signal?.aborted) throw new Error('AbortError: stream timed out');
+
     const delta = chunk.choices[0]?.delta?.content ?? '';
     if (delta) {
       fullText += delta;

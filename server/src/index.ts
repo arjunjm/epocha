@@ -222,6 +222,10 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90_000);
 
+  // Keepalive: write an SSE comment every 15s so Azure's load balancer doesn't
+  // silently close the idle connection before our 90s timeout fires.
+  const keepalive = setInterval(() => { res.write(': keepalive\n\n'); }, 15_000);
+
   try {
     const userMessage = startYear && endYear
       ? `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.`
@@ -281,7 +285,11 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
 
   } catch (error) {
     let message = error instanceof Error ? error.message : 'An unknown error occurred';
-    if (message.includes('abort') || message.includes('AbortError')) {
+    if (
+      message.toLowerCase().includes('abort') ||
+      message.includes('AbortError') ||
+      (error instanceof Error && error.name === 'AbortError')
+    ) {
       message = 'Request timed out after 90 seconds. Try a narrower time range.';
     } else if (message.includes('credit') || message.includes('billing') || message.includes('402') || message.includes('payment')) {
       message = getProvider() === 'azure-openai'
@@ -291,6 +299,7 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     send({ type: 'error', message });
   } finally {
     clearTimeout(timeout);
+    clearInterval(keepalive);
     res.end();
   }
 }));
