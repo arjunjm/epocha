@@ -252,6 +252,8 @@ export default function App() {
     setTimelineWarning(undefined);
     setActiveTopic(topic);
     setPage('home');
+    // Record search immediately so it appears in Recent even if the user navigates away
+    pushHistory({ topic, start: startYear, end: endYear, title: topic });
     // Feature 9: start elapsed timer
     setGenerationStartTime(Date.now());
 
