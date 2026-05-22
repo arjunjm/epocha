@@ -11,7 +11,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
   const [topic, setTopic] = useState('');
   const [startYear, setStartYear] = useState('');
   const [endYear, setEndYear] = useState('');
-  const [liteMode, setLiteMode] = useState(false);
+  const [liteMode, setLiteMode] = useState(true);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -80,23 +80,23 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
       {/* Lite mode toggle */}
       <label className="flex items-center justify-between mb-4 cursor-pointer select-none group">
         <div>
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Quick mode</span>
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Full details</span>
           <p className="text-[11px] text-slate-600 mt-0.5">
-            {liteMode ? 'Summaries only — ~2× faster' : 'Full details — paragraphs per event'}
+            {liteMode ? 'Summaries only — ~2× faster' : 'Full paragraphs per event — slower'}
           </p>
         </div>
         <button
           type="button"
           role="switch"
-          aria-checked={liteMode}
+          aria-checked={!liteMode}
           onClick={() => setLiteMode(m => !m)}
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-            liteMode ? 'bg-amber-500' : 'bg-white/10'
+            !liteMode ? 'bg-amber-500' : 'bg-white/10'
           }`}
         >
           <span
             className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-              liteMode ? 'translate-x-4.5' : 'translate-x-0.5'
+              !liteMode ? 'translate-x-4.5' : 'translate-x-0.5'
             }`}
           />
         </button>
@@ -107,7 +107,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
         disabled={isOut}
         className="w-full py-4 rounded-xl font-semibold text-sm tracking-wide text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 active:scale-[0.98] transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {isOut ? 'Daily limit reached' : liteMode ? 'Quick explore →' : 'Explore →'}
+        {isOut ? 'Daily limit reached' : liteMode ? 'Quick explore →' : 'Explore (full details) →'}
       </button>
 
       {/* Daily usage bar */}
