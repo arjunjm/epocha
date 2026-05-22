@@ -18,6 +18,18 @@ export interface TimelineData {
   relatedTopics?: string[];
 }
 
+export interface QuizResult {
+  id: string;
+  userId: string;
+  topic: string;
+  startYear: string;
+  endYear: string;
+  score: number;
+  total: number;
+  xpEarned: number;
+  takenAt: string;
+}
+
 export interface QuizQuestion {
   question: string;
   options: string[];
@@ -83,4 +95,4 @@ export type LoadingStatus = { loading: true; message: string };
 export type IdleStatus = { loading: false; error?: string };
 export type AppStatus = LoadingStatus | IdleStatus;
 
-export type AppPage = 'home' | 'marketplace' | 'saved' | 'discover' | 'paths' | 'admin';
+export type AppPage = 'home' | 'marketplace' | 'saved' | 'discover' | 'paths' | 'admin' | 'stats';

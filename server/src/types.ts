@@ -1,3 +1,15 @@
+export interface QuizResult {
+  id: string;
+  userId: string;
+  topic: string;
+  startYear: string;
+  endYear: string;
+  score: number;
+  total: number;
+  xpEarned: number;
+  takenAt: string;
+}
+
 export interface TimelineEvent {
   date: string;
   sortYear?: number;
