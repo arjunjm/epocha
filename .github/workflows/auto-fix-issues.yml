@@ -1,0 +1,96 @@
+name: Auto-fix labeled issues
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: auto-fix-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    name: Fix eligible issue
+    runs-on: ubuntu-latest
+
+    if: contains(github.event.issue.labels.*.name, 'auto-fix-candidate')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Detect security labels
+        id: gate
+        env:
+          ISSUE_LABELS: ${{ toJson(github.event.issue.labels) }}
+        run: |
+          if echo "$ISSUE_LABELS" | grep -Eq '"(security|auth|needs-human)"'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "reason=security-sensitive" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on skipped issue
+        if: steps.gate.outputs.skip == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: 'Skipping auto-fix: the issue is labeled security/auth-sensitive and requires human review.'
+            });
+
+      - name: Run auto-fix agent
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/auto-fix-issue.mjs "${{ github.event.issue.number }}"
+
+      - name: Check for changes
+        if: steps.gate.outputs.skip != 'true'
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.gate.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true'
+        id: create-pull-request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto-fix/issue-${{ github.event.issue.number }}
+          title: "Auto-fix for issue #${{ github.event.issue.number }}"
+          commit-message: "Auto-fix issue #${{ github.event.issue.number }}"
+          body: |
+            This PR was created automatically from issue #${{ github.event.issue.number }}.
+
+            The workflow only acts on `auto-fix-candidate` issues and skips anything labeled `security`, `auth`, or `needs-human`.
+          labels: auto-fix-candidate
+
+      - name: Comment with PR link
+        if: steps.gate.outputs.skip != 'true' && steps.changes.outputs.has_changes == 'true' && steps.create-pull-request.outputs.pull-request-url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `Auto-fix PR opened: ${{ steps.create-pull-request.outputs.pull-request-url }}`
+            });
