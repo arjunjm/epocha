@@ -48,6 +48,15 @@ function formatTtl(secs: number): string {
   return `${m}m`;
 }
 
+type NewsSource = 'llm' | 'guardian' | 'newsapi' | 'rss';
+
+const NEWS_SOURCE_OPTIONS: { value: NewsSource; label: string; note?: string }[] = [
+  { value: 'llm',      label: 'LLM (GPT-4o / Haiku)' },
+  { value: 'rss',      label: 'RSS Feeds',      note: 'BBC World · Al Jazeera · NPR — no API key needed' },
+  { value: 'guardian', label: 'The Guardian',   note: 'requires guardian-api-key in Key Vault' },
+  { value: 'newsapi',  label: 'NewsAPI',         note: 'requires newsapi-key in Key Vault (localhost only on free tier)' },
+];
+
 interface TriggerCard {
   id: 'trending' | 'pregenerate';
   title: string;
@@ -59,7 +68,7 @@ const TRIGGERS: TriggerCard[] = [
   {
     id: 'trending',
     title: 'Trending Events',
-    description: 'Ask the LLM for today\'s 10 most significant global events and generate timelines for each. Populates the Trending sidebar section.',
+    description: 'Fetch today\'s 10 most significant global events and generate timelines for each. Populates the Trending sidebar section.',
     endpoint: '/api/admin/trigger/trending',
   },
   {
@@ -73,6 +82,7 @@ const TRIGGERS: TriggerCard[] = [
 export default function AdminPage() {
   const [status, setStatus] = useState<JobStatus>({ running: false, logs: [] });
   const [forceRegen, setForceRegen] = useState<Record<string, boolean>>({ trending: false, pregenerate: false });
+  const [newsSource, setNewsSource] = useState<NewsSource>('llm');
   const [triggering, setTriggering] = useState<Record<string, boolean>>({});
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
   const [cache, setCache] = useState<CacheEntry[] | null>(null);
@@ -119,18 +129,20 @@ export default function AdminPage() {
     setTriggering(p => ({ ...p, [card.id]: true }));
     setTriggerResult(null);
     try {
+      const payload: Record<string, unknown> = { forceRegenerate: forceRegen[card.id] };
+      if (card.id === 'trending') payload.newsSource = newsSource;
       const res = await fetch(card.endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceRegenerate: forceRegen[card.id] }),
+        body: JSON.stringify(payload),
       });
-      const body = await res.json() as { message?: string; error?: string };
+      const resBody = await res.json() as { message?: string; error?: string };
       if (res.ok) {
-        setTriggerResult(`Started: ${body.message ?? 'OK'}`);
+        setTriggerResult(`Started: ${resBody.message ?? 'OK'}`);
         await fetchStatus();
       } else {
-        setTriggerResult(`Error: ${body.error ?? res.statusText}`);
+        setTriggerResult(`Error: ${resBody.error ?? res.statusText}`);
       }
     } catch (err) {
       setTriggerResult(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -185,6 +197,31 @@ export default function AdminPage() {
             <div key={card.id} className="glass rounded-2xl p-5 border border-white/8">
               <h2 className="text-sm font-semibold text-white mb-1">{card.title}</h2>
               <p className="text-xs text-slate-500 mb-4 leading-relaxed">{card.description}</p>
+
+              {/* News source selector — Trending Events only */}
+              {card.id === 'trending' && (
+                <div className="mb-4">
+                  <p className="text-[10px] text-slate-600 uppercase tracking-widest mb-1.5">News source</p>
+                  <div className="flex flex-col gap-1.5">
+                    {NEWS_SOURCE_OPTIONS.map(opt => (
+                      <label key={opt.value} className="flex items-start gap-2 cursor-pointer group">
+                        <input
+                          type="radio"
+                          name="newsSource"
+                          value={opt.value}
+                          checked={newsSource === opt.value}
+                          onChange={() => setNewsSource(opt.value)}
+                          className="mt-0.5 accent-amber-400"
+                        />
+                        <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors leading-snug">
+                          {opt.label}
+                          {opt.note && <span className="block text-[10px] text-slate-700">{opt.note}</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <label className="flex items-center gap-2 mb-4 cursor-pointer select-none group">
                 <input

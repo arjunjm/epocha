@@ -486,11 +486,11 @@ app.delete('/api/admin/logs', auth, adminAuth, ah(async (_req, res) => {
 
 // Trigger Azure Functions (fire-and-forget, returns 202 from function)
 app.post('/api/admin/trigger/trending', auth, adminAuth, ah(async (req, res) => {
-  const { forceRegenerate = false } = req.body as { forceRegenerate?: boolean };
+  const { forceRegenerate = false, newsSource = 'llm' } = req.body as { forceRegenerate?: boolean; newsSource?: string };
   const response = await fetch(`${FUNC_BASE_URL}/generateTrendingEvents`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ forceRegenerate }),
+    body: JSON.stringify({ forceRegenerate, newsSource }),
   });
   const body = await response.json() as Record<string, unknown>;
   res.status(response.status).json(body);
