@@ -39,17 +39,13 @@ export default function AuthButton({ user, loading, onSignIn, onSignOut, onAdmin
 
       {/* Avatar + dropdown */}
       <div className="relative group">
-        <button className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-white/5 border border-white/10 hover:border-white/20 transition-colors">
-          {user.picture ? (
-            <img src={user.picture} alt={user.name} className="w-6 h-6 rounded-full" />
-          ) : (
-            <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-xs font-bold text-black">
-              {user.name[0]}
-            </div>
-          )}
+        <button className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 hover:border-white/20 transition-colors">
           <span className="text-xs text-slate-300 hidden sm:inline max-w-[100px] truncate">
             {user.name}
           </span>
+          <svg className="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
 
         {/* Dropdown */}
