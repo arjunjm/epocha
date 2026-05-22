@@ -24,7 +24,7 @@ function exportMarkdown(bookmarks: Bookmark[]): void {
     for (const { event } of items) {
       lines.push(`### ${event.title} — ${event.date}`, '');
       if (event.location) lines.push(`📍 *${event.location}*`, '');
-      lines.push(event.summary, '', event.details, '', `**Significance:** ${event.significance}`, '', '---', '');
+      lines.push(event.summary, '', event.details ?? '', '', `**Significance:** ${event.significance}`, '', '---', '');
     }
   }
 

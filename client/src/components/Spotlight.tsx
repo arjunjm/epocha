@@ -51,7 +51,7 @@ export default function Spotlight({ onSelect }: Props) {
         if (!data.cached || !data.timeline.events.length) continue;
 
         // Pick a random event, prefer ones with longer details
-        const candidates = data.timeline.events.filter(e => e.details.length > 100);
+        const candidates = data.timeline.events.filter(e => (e.details?.length ?? 0) > 100);
         const pool = candidates.length ? candidates : data.timeline.events;
         const event = pool[Math.floor(Math.random() * pool.length)]!;
 
