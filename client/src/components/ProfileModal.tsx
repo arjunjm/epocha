@@ -123,20 +123,10 @@ export default function ProfileModal({ user, onClose, onSignOut, onOpenMarketpla
           <div className={`absolute inset-0 bg-gradient-to-br ${bg} opacity-5 pointer-events-none`} />
 
           <div className="relative flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {/* Avatar */}
-              {user.picture ? (
-                <img src={user.picture} alt={user.name} className={`w-14 h-14 rounded-full ring-2 ${ring} shadow-lg`} />
-              ) : (
-                <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${bg} ring-2 ${ring} flex items-center justify-center text-2xl font-black ${text}`}>
-                  {user.name[0]}
-                </div>
-              )}
-              <div>
-                <p className="text-white font-bold text-sm leading-tight">{user.name}</p>
-                <p className={`text-xs font-semibold ${label}`}>{title}</p>
-                <p className="text-slate-600 text-[10px] mt-0.5">{user.email}</p>
-              </div>
+            <div>
+              <p className="text-white font-bold text-sm leading-tight">{user.name}</p>
+              <p className={`text-xs font-semibold ${label}`}>{title}</p>
+              <p className="text-slate-600 text-[10px] mt-0.5">{user.email}</p>
             </div>
             <button onClick={onClose} className="text-slate-600 hover:text-slate-300 text-xl leading-none">×</button>
           </div>
