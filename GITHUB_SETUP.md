@@ -55,6 +55,8 @@ The scan uses strict labels:
 
 The auto-fix workflow is intentionally conservative. It is designed to handle low-risk, repeatable fixes and escalate sensitive findings to humans.
 
+If you want the auto-fix agent to use an LLM for broader low-risk repairs, add an `ANTHROPIC_API_KEY` repository secret. The workflow will still handle the built-in safe fix path without it.
+
 ## Azure resources provisioned
 
 | Resource | Name | Notes |

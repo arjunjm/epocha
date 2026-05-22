@@ -46,6 +46,78 @@ function replaceEmptyCatch(content) {
   return content.replace(/catch\s*\{\s*\}/g, 'catch { /* ignore */ }');
 }
 
+function parseEvidence(body) {
+  return body
+    .split('\n')
+    .map(line => line.match(/^- (.+?):(\d+) — `(.+)`$/))
+    .filter(Boolean)
+    .map(match => ({
+      file: match[1],
+      line: Number(match[2]),
+      excerpt: match[3],
+    }));
+}
+
+function buildPrompt(issue, meta, evidence) {
+  const files = [...new Set(evidence.map(item => item.file))];
+  const evidenceBlock = evidence.map(item => `- ${item.file}:${item.line} — ${item.excerpt}`).join('\n');
+  return `You are an autonomous SWE agent. Make the smallest safe fix for this issue.
+
+Issue title: ${issue.title}
+Rule: ${meta.rule ?? 'unknown'}
+
+You may only edit these files:
+${files.map(file => `- ${file}`).join('\n') || '- none'}
+
+Evidence:
+${evidenceBlock || '- none'}
+
+Constraints:
+- Return a unified diff only.
+- Change as little as possible.
+- Do not add dependencies.
+- Do not modify security-sensitive code.
+- If no safe fix exists, return an empty response.`;
+}
+
+async function callAnthropic(prompt) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return '';
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5',
+      max_tokens: 1200,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Anthropic request failed: ${res.status} ${res.statusText}\n${text}`);
+  }
+
+  const data = await res.json();
+  return data.content?.[0]?.type === 'text' ? data.content[0].text ?? '' : '';
+}
+
+async function applyPatch(patch) {
+  if (!patch.trim()) return false;
+  const result = execFileSync('git', ['apply', '--whitespace=nowarn', '-'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    input: patch,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  return true;
+}
+
 async function writeFileIfChanged(file, nextContent) {
   const abs = path.join(repoRoot, file);
   const prev = await fs.readFile(abs, 'utf8');
@@ -85,6 +157,19 @@ async function main() {
     if (next !== current) {
       await writeFileIfChanged(file, next);
       changed = true;
+    }
+  }
+
+  if (!changed && files.length) {
+    const evidence = parseEvidence(body).filter(item => files.includes(item.file));
+    const prompt = buildPrompt(issue, meta, evidence);
+    const patch = await callAnthropic(prompt);
+    if (patch.trim()) {
+      try {
+        changed = await applyPatch(patch);
+      } catch (error) {
+        await appendComment(issueNumber, `Auto-fix agent could not safely apply a patch: ${error.message}`);
+      }
     }
   }
 
