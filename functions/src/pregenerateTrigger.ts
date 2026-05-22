@@ -18,11 +18,11 @@ import type { TopicJob } from './generation.js';
 import {
   getProvider as getProviderShared,
   resetClients,
-  TRENDING_EVENTS_PROMPT,
   AI_SUGGEST_PROMPT,
   cacheKey,
 } from './generation.js';
 import { QUEUE_NAME } from './generateSingle.js';
+import { fetchTrendingTopics, resetNewsClients, type NewsProvider } from './newsProviders.js';
 
 const POPULAR_KEY = 'epocha:popular-topics';
 const MAX_JOBS = 80;
@@ -63,33 +63,14 @@ function getProvider() {
   return getProviderShared();
 }
 
-async function fetchTrendingCurrentEvents(log: (m: string) => void): Promise<TopicJob[]> {
+async function fetchTrendingCurrentEvents(
+  log: (m: string) => void,
+  provider: NewsProvider = 'llm',
+): Promise<TopicJob[]> {
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   try {
-    let text = '';
-    if (getProvider() === 'azure-openai') {
-      const res = await getAzureClient().chat.completions.create({
-        model: getSecret('azure-openai-deployment') || 'gpt-4o',
-        max_tokens: 512,
-        messages: [{ role: 'user', content: TRENDING_EVENTS_PROMPT(date) }],
-      });
-      text = res.choices[0]?.message?.content ?? '';
-    } else {
-      const res = await getAnthropicClient().messages.create({
-        model: 'claude-haiku-4-5',
-        max_tokens: 512,
-        messages: [{ role: 'user', content: TRENDING_EVENTS_PROMPT(date) }],
-      });
-      text = res.content[0]?.type === 'text' ? res.content[0].text : '';
-    }
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    const topics = JSON.parse(match[0]) as string[];
-    log(`[trending-events] Got ${topics.length} topics for ${date}`);
-    return topics
-      .filter(t => typeof t === 'string' && t.trim())
-      .slice(0, 10)
-      .map(t => ({ topic: t.trim(), startYear: '', endYear: '' }));
+    const topics = await fetchTrendingTopics(provider, date, log);
+    return topics.map(t => ({ topic: t, startYear: '', endYear: '' }));
   } catch (err) {
     log(`[trending-events] Failed: ${err}`);
     return [];
@@ -286,11 +267,15 @@ app.http('generateTrendingEvents', {
     ctx.log('Generating trending current events...');
     await loadSecrets();
     resetClients();
+    resetNewsClients();
     anthropic = null;
     azure = null;
 
     const body = await request.json().catch(() => ({}) as Record<string, unknown>);
-    const { forceRegenerate = false } = body as { forceRegenerate?: boolean };
+    const { forceRegenerate = false, newsSource = 'llm' } = body as {
+      forceRegenerate?: boolean;
+      newsSource?: NewsProvider;
+    };
 
     const redisUrl = getSecret('redis-url');
     if (!redisUrl) return { status: 500, body: 'Missing redis-url' };
@@ -300,8 +285,8 @@ app.http('generateTrendingEvents', {
       maxRetriesPerRequest: 2,
     });
     try {
-      const jobs = await fetchTrendingCurrentEvents(m => ctx.log(m));
-      if (jobs.length === 0) return { status: 500, body: 'No trending topics returned by LLM' };
+      const jobs = await fetchTrendingCurrentEvents(m => ctx.log(m), newsSource);
+      if (jobs.length === 0) return { status: 500, body: `No trending topics returned by provider: ${newsSource}` };
       await enqueueJobs(jobs, forceRegenerate, redis, m => ctx.log(m));
       return {
         status: 200,
