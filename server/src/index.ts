@@ -415,7 +415,7 @@ app.post('/api/saved', auth, ah(async (req, res) => {
     topic: string; startYear: string; endYear: string;
     title: string; description: string; collectionName?: string;
   };
-  if (!topic || !startYear || !endYear || !title) {
+  if (!topic || !title) {
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }

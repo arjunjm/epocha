@@ -158,8 +158,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
     `${data.topic}::${event.date}::${event.title}`;
 
   const topicParts = data.period.split(' to ');
-  const startYear = topicParts[0]?.replace(/\D/g, '') ?? '0';
-  const endYear = topicParts[1]?.replace(/\D/g, '') ?? '9999';
+  const startYear = topicParts[0]?.replace(/\D/g, '') || topicParts[0]?.trim() || '';
+  const endYear = topicParts[1]?.replace(/\D/g, '') || topicParts[1]?.trim() || '';
 
   const nextEraPeriod = (() => {
     const s = parseInt(startYear, 10);
