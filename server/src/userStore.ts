@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { CosmosClient } from '@azure/cosmos';
 import { getSecret } from './secrets.js';
-import { xpToLevel, XP_REWARDS, type User, type SavedTimeline, type CustomTopic } from './types.js';
+import { xpToLevel, XP_REWARDS, type User, type SavedTimeline, type CustomTopic, type QuizResult } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCAL_DB_PATH = path.join(__dirname, '../../data/users.json');
@@ -21,20 +21,23 @@ export const ADMIN_EMAILS = new Set(['arjunjm@gmail.com']);
 let cosmosUsers: ReturnType<ReturnType<CosmosClient['database']>['container']> | null = null;
 let cosmosSaved: ReturnType<ReturnType<CosmosClient['database']>['container']> | null = null;
 let cosmosTopics: ReturnType<ReturnType<CosmosClient['database']>['container']> | null = null;
+let cosmosQuiz: ReturnType<ReturnType<CosmosClient['database']>['container']> | null = null;
 
 async function getCosmosContainers() {
-  if (cosmosUsers) return { users: cosmosUsers, saved: cosmosSaved!, topics: cosmosTopics! };
+  if (cosmosUsers) return { users: cosmosUsers, saved: cosmosSaved!, topics: cosmosTopics!, quiz: cosmosQuiz! };
   const client = new CosmosClient({ endpoint: getSecret('cosmos-endpoint'), key: getSecret('cosmos-key') });
   const { database } = await client.databases.createIfNotExists({ id: 'epocha' });
-  const [u, s, t] = await Promise.all([
+  const [u, s, t, q] = await Promise.all([
     database.containers.createIfNotExists({ id: 'users', partitionKey: { paths: ['/id'] } }),
     database.containers.createIfNotExists({ id: 'savedTimelines', partitionKey: { paths: ['/userId'] } }),
     database.containers.createIfNotExists({ id: 'customTopics', partitionKey: { paths: ['/userId'] } }),
+    database.containers.createIfNotExists({ id: 'quizResults', partitionKey: { paths: ['/userId'] } }),
   ]);
   cosmosUsers = u.container;
   cosmosSaved = s.container;
   cosmosTopics = t.container;
-  return { users: cosmosUsers, saved: cosmosSaved, topics: cosmosTopics };
+  cosmosQuiz = q.container;
+  return { users: cosmosUsers, saved: cosmosSaved, topics: cosmosTopics, quiz: cosmosQuiz };
 }
 
 // ── Local JSON helpers ─────────────────────────────────────────────────────
@@ -202,6 +205,34 @@ export async function deleteSavedTimeline(userId: string, id: string): Promise<b
   if (filtered.length === all.length) return false;
   await writeJson(LOCAL_SAVED_PATH, filtered);
   return true;
+}
+
+// ── Quiz results ───────────────────────────────────────────────────────────
+
+export async function saveQuizResult(
+  userId: string,
+  data: Omit<QuizResult, 'id' | 'userId' | 'takenAt'>
+): Promise<void> {
+  const item: QuizResult = { id: randomUUID(), userId, takenAt: new Date().toISOString(), ...data };
+  if (useCosmosDB()) {
+    const { quiz } = await getCosmosContainers();
+    await quiz.items.create(item);
+  }
+  // No local fallback needed — quiz results are a nice-to-have, not critical
+}
+
+export async function getQuizResults(userId: string): Promise<QuizResult[]> {
+  if (!useCosmosDB()) return [];
+  try {
+    const { quiz } = await getCosmosContainers();
+    const { resources } = await quiz.items
+      .query<QuizResult>({
+        query: 'SELECT * FROM c WHERE c.userId = @userId ORDER BY c.takenAt DESC OFFSET 0 LIMIT 50',
+        parameters: [{ name: '@userId', value: userId }],
+      }, { partitionKey: userId })
+      .fetchAll();
+    return resources;
+  } catch { return []; }
 }
 
 // ── Custom topics ──────────────────────────────────────────────────────────

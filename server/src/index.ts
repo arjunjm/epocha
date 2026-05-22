@@ -13,6 +13,7 @@ import {
   awardXP, checkAndAwardDailyLogin, unlockTheme, setActiveTheme,
   getSavedTimelines, saveTimeline, deleteSavedTimeline,
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
+  saveQuizResult, getQuizResults,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
 import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry, getAdminProgress, logSearchEvent, getAnalyticsSummary, getSemanticallyCached, storeTopicEmbedding } from './cache.js';
@@ -356,10 +357,13 @@ app.get('/api/quiz', optAuth, ah(async (req, res) => {
 
 app.post('/api/quiz/complete', auth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
-  const { score, total } = req.body as { score: number; total: number };
-  // Award full XP if 3+ correct out of 5 (60%), else half
+  const { score, total, topic = '', startYear = '', endYear = '' } =
+    req.body as { score: number; total: number; topic?: string; startYear?: string; endYear?: string };
   const xpEarned = (score / total) >= 0.6 ? XP_REWARDS.COMPLETE_QUIZ : Math.floor(XP_REWARDS.COMPLETE_QUIZ / 2);
-  const user = await awardXP(authReq.user!.id, xpEarned);
+  const [user] = await Promise.all([
+    awardXP(authReq.user!.id, xpEarned),
+    saveQuizResult(authReq.user!.id, { topic, startYear, endYear, score, total, xpEarned }),
+  ]);
   res.json({ xpEarned, xp: user?.xp ?? 0, level: user?.level ?? 1 });
 }));
 
@@ -408,6 +412,17 @@ app.post('/api/marketplace/unlock/:themeId', auth, ah(async (req, res) => {
   const user = await unlockTheme(authReq.user!.id, themeId);
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
   res.json({ ok: true, unlockedThemes: user.unlockedThemes });
+}));
+
+// ── User stats ────────────────────────────────────────────────────────────
+
+app.get('/api/stats', auth, ah(async (req, res) => {
+  const authReq = req as AuthRequest;
+  const [quizResults, saved] = await Promise.all([
+    getQuizResults(authReq.user!.id),
+    getSavedTimelines(authReq.user!.id),
+  ]);
+  res.json({ quizResults, savedCount: saved.length });
 }));
 
 // ── Saved timelines ────────────────────────────────────────────────────────

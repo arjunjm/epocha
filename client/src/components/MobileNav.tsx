@@ -12,6 +12,7 @@ const tabs: { id: AppPage; label: string; icon: string; authRequired?: boolean }
   { id: 'discover',   label: 'Discover', icon: '✦' },
   { id: 'paths',      label: 'Paths',    icon: '◎' },
   { id: 'saved',      label: 'Library',  icon: '◫', authRequired: true },
+  { id: 'stats',      label: 'Stats',    icon: '◈', authRequired: true },
 ];
 
 export default function MobileNav({ page, onNavigate, user }: Props) {

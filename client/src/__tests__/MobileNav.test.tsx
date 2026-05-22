@@ -55,10 +55,10 @@ describe('MobileNav', () => {
     expect(homeBtn).not.toHaveClass('text-amber-400');
   });
 
-  it('renders exactly 3 tabs without auth and 4 tabs with auth', () => {
+  it('renders exactly 3 tabs without auth and 5 tabs with auth', () => {
     const { rerender } = render(<MobileNav page="home" onNavigate={vi.fn()} user={null} />);
     expect(screen.getAllByRole('button')).toHaveLength(3);
     rerender(<MobileNav page="home" onNavigate={vi.fn()} user={mockUser} />);
-    expect(screen.getAllByRole('button')).toHaveLength(4);
+    expect(screen.getAllByRole('button')).toHaveLength(5);
   });
 });

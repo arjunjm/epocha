@@ -14,6 +14,7 @@ import Toaster from './components/Toaster';
 import SurpriseButton from './components/SurpriseButton';
 import Paths from './components/Paths';
 import AdminPage from './components/AdminPage';
+import StatsPage from './components/StatsPage';
 import WelcomeModal from './components/WelcomeModal';
 import { toast } from './utils/toast';
 import { useAuth } from './hooks/useAuth';
@@ -384,6 +385,12 @@ export default function App() {
             {user && (
               <>
                 <button
+                  onClick={() => { setPage('stats'); setTimeline(null); setStatus({ loading: false }); }}
+                  className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'stats' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+                >
+                  Stats
+                </button>
+                <button
                   onClick={() => { setPage('saved'); setTimeline(null); setStatus({ loading: false }); }}
                   className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'saved' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
                 >
@@ -468,6 +475,11 @@ export default function App() {
         {/* Saved timelines page */}
         {page === 'saved' && user && (
           <SavedTimelines onSelect={(topic, s, e) => { setPage('home'); void handleBrowse(topic, s, e); }} />
+        )}
+
+        {/* Stats page */}
+        {page === 'stats' && user && (
+          <StatsPage />
         )}
 
         {/* Admin page — admin users only */}

@@ -69,7 +69,7 @@ export default function QuizModal({ topic, startYear, endYear, onClose, onComple
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score, total }),
+        body: JSON.stringify({ score, total, topic, startYear, endYear }),
       });
       if (res.ok) {
         const data = await res.json() as { xpEarned: number };
