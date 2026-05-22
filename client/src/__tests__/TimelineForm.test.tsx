@@ -20,7 +20,7 @@ describe('TimelineForm', () => {
     await userEvent.type(screen.getByPlaceholderText(/400 CE/i), '476 CE');
     fireEvent.submit(screen.getByRole('button', { name: /explore/i }));
 
-    expect(onSubmit).toHaveBeenCalledWith('Ancient Rome', '27 BCE', '476 CE');
+    expect(onSubmit).toHaveBeenCalledWith('Ancient Rome', '27 BCE', '476 CE', false);
   });
 
   it('calls onSubmit with just a topic when years are omitted', () => {
@@ -28,7 +28,7 @@ describe('TimelineForm', () => {
     render(<TimelineForm onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText(/^topic$/i), { target: { value: 'Ancient Rome' } });
     fireEvent.submit(screen.getByRole('button', { name: /explore/i }));
-    expect(onSubmit).toHaveBeenCalledWith('Ancient Rome', '', '');
+    expect(onSubmit).toHaveBeenCalledWith('Ancient Rome', '', '', false);
   });
 
   it('does not call onSubmit when topic is empty', () => {
@@ -45,7 +45,7 @@ describe('TimelineForm', () => {
     await userEvent.type(screen.getByPlaceholderText(/600 BCE/i), ' 27 BCE ');
     await userEvent.type(screen.getByPlaceholderText(/400 CE/i), ' 476 CE ');
     fireEvent.submit(screen.getByRole('button', { name: /explore/i }));
-    expect(onSubmit).toHaveBeenCalledWith('Ancient Rome', '27 BCE', '476 CE');
+    expect(onSubmit).toHaveBeenCalledWith('Ancient Rome', '27 BCE', '476 CE', false);
   });
 
   it('shows usage bar when remaining and dailyLimit are provided', () => {
