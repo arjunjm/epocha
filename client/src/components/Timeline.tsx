@@ -22,6 +22,7 @@ interface Props {
   onRelatedSelect?: (topic: string) => void;
   onContinue?: (topic: string, start: string, end: string) => void;
   onRegenerateSkipCache?: () => void;
+  onUpgradeLite?: () => void;
   onSaved?: () => void;
   warning?: string;
   user?: AuthUser | null;
@@ -52,8 +53,9 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onSaved, warning, user, onSignIn }: Props) {
+export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, warning, user, onSignIn }: Props) {
   const total = data.events.length;
+  const isLiteMode = data.events.some(e => !e.details);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -339,6 +341,24 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
             </p>
           );
         })()}
+
+        {/* Lite mode banner */}
+        {isLiteMode && (
+          <div className="flex items-center justify-center gap-3 mb-4 fade-up print:hidden">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/25">
+              <span className="text-amber-400 text-xs">⚡ Quick mode</span>
+              <span className="text-slate-600 text-xs">— summaries only</span>
+              {onUpgradeLite && (
+                <button
+                  onClick={onUpgradeLite}
+                  className="ml-1 text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
+                >
+                  Load full details →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Reading progress */}
         {readCount > 0 && (

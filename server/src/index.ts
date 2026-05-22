@@ -159,8 +159,8 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
 // Authenticated generate endpoint — generates if not cached
 app.post('/api/timeline', optAuth, ah(async (req, res) => {
   const authReq = req as AuthRequest;
-  const { topic, startYear: rawStart, endYear: rawEnd, publicBrowse, skipCache } =
-    req.body as { topic: string; startYear?: string; endYear?: string; publicBrowse?: boolean; skipCache?: boolean };
+  const { topic, startYear: rawStart, endYear: rawEnd, publicBrowse, skipCache, liteMode } =
+    req.body as { topic: string; startYear?: string; endYear?: string; publicBrowse?: boolean; skipCache?: boolean; liteMode?: boolean };
   const startYear = rawStart?.trim() ?? '';
   const endYear = rawEnd?.trim() ?? '';
 
@@ -194,8 +194,8 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     return;
   }
 
-  // Serve from cache (unless admin requested skip)
-  if (!skipCache || !isAdmin) {
+  // Serve from cache (unless admin skip or lite mode — lite results are not cached)
+  if (!liteMode && (!skipCache || !isAdmin)) {
     const cached = await getCached(topic, startYear, endYear);
     if (cached) {
       send({ type: 'status', message: 'Loading from cache…' });
@@ -229,9 +229,12 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
   const keepalive = setInterval(() => { res.write(': keepalive\n\n'); }, 15_000);
 
   try {
+    const liteSuffix = liteMode
+      ? '\n\nLITE MODE: Omit the "details" field for every event — do not include it in the JSON at all. Include only: date, sortYear, title, summary, significance, figures, location, tags.'
+      : '';
     const userMessage = startYear && endYear
-      ? `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.`
-      : `Generate a detailed timeline for: "${topic}"\nChoose the most historically significant and complete time period for this topic. Return only the JSON object.`;
+      ? `Generate a detailed timeline for: "${topic}"\nTime period: ${startYear} to ${endYear}\n\nReturn only the JSON object.${liteSuffix}`
+      : `Generate a detailed timeline for: "${topic}"\nChoose the most historically significant and complete time period for this topic. Return only the JSON object.${liteSuffix}`;
 
     const fullText = await streamGenerate(
       SYSTEM_PROMPT,
@@ -268,9 +271,8 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     );
 
     const isIncomplete = timeline.events.length < 5;
-    if (!isIncomplete) {
+    if (!isIncomplete && !liteMode) {
       await setCached(topic, startYear, endYear, timeline);
-      // Only track search popularity for authenticated custom searches
       if (authReq.user && !publicBrowse) void trackSearch(topic, startYear, endYear);
     }
 
@@ -282,8 +284,8 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     // Generate quiz questions in background (don't block response)
     void generateQuizAndCache(topic, startYear, endYear, timeline);
 
-    // Pre-warm related topics + next era so they're instant when the user explores further
-    if (!isIncomplete) void enqueueRelatedTopics(timeline, startYear, endYear);
+    // Pre-warm related topics + next era (full mode only — lite results are transient)
+    if (!isIncomplete && !liteMode) void enqueueRelatedTopics(timeline, startYear, endYear);
 
   } catch (error) {
     let message = error instanceof Error ? error.message : 'An unknown error occurred';

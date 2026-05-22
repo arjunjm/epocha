@@ -240,10 +240,10 @@ export default function App() {
   };
 
   // Custom generate — requires auth, counts against daily limit
-  const handleGenerate = async (topic: string, startYear: string, endYear: string, skipCache = false) => {
+  const handleGenerate = async (topic: string, startYear: string, endYear: string, skipCache = false, liteMode = false) => {
     if (!user) { setPendingTopic({ topic, start: startYear, end: endYear }); signIn(); return; }
     // Feature 8: store retry callback before any async work
-    lastAttemptRef.current = () => void handleGenerate(topic, startYear, endYear, skipCache);
+    lastAttemptRef.current = () => void handleGenerate(topic, startYear, endYear, skipCache, liteMode);
     setStatus({ loading: true, message: `Looking up "${topic}"…` });
     setTimeline(null);
     // Feature 4: show skeleton immediately with form values; server meta event will override
@@ -275,7 +275,10 @@ export default function App() {
       } catch { /* fall through to SSE */ }
     }
 
-    await streamTimeline(topic, startYear, endYear, { ...(skipCache && { skipCache: true }) });
+    await streamTimeline(topic, startYear, endYear, {
+      ...(skipCache && { skipCache: true }),
+      ...(liteMode && { liteMode: true }),
+    });
     setGenerationStartTime(null);
   };
 
@@ -510,7 +513,7 @@ export default function App() {
 
                 <div className="fade-up w-full max-w-lg" style={{ animationDelay: '0.15s' }}>
                   <TimelineForm
-                onSubmit={handleGenerate}
+                onSubmit={(topic, start, end, liteMode) => void handleGenerate(topic, start, end, false, liteMode)}
                 remaining={user?.remaining ?? undefined}
                 dailyLimit={user?.dailyLimit ?? undefined}
               />
@@ -653,6 +656,7 @@ export default function App() {
                   onRelatedSelect={user ? handleRelatedSelect : undefined}
                   onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
                   onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
+                  onUpgradeLite={user && timeline.events.some(e => !e.details) ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
                   onSaved={() => setCollectionsRefreshKey(k => k + 1)}
                   warning={timelineWarning}
                   user={user}

@@ -63,7 +63,7 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
     try { localStorage.setItem(TAGS_PREF_KEY, String(next)); } catch { /* ignore */ }
   };
 
-  const paragraphs = event.details
+  const paragraphs = (event.details ?? '')
     .split(/\n\n+/)
     .map(p => p.trim())
     .filter(Boolean);
@@ -164,13 +164,15 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
       {expanded && (
         <div className="card-details border-t border-white/5 px-5 sm:px-6 pb-6 pt-5" onClick={e => e.stopPropagation()}>
           {/* Details */}
-          <div className="space-y-3 mb-5">
-            {paragraphs.map((para, i) => (
-              <p key={i} className="text-slate-400 text-sm leading-relaxed">
-                {para}
-              </p>
-            ))}
-          </div>
+          {paragraphs.length > 0 ? (
+            <div className="space-y-3 mb-5">
+              {paragraphs.map((para, i) => (
+                <p key={i} className="text-slate-400 text-sm leading-relaxed">{para}</p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-700 text-xs italic mb-5">No detailed description — generated in quick mode.</p>
+          )}
 
           {/* Significance */}
           <div className="rounded-xl p-4 border border-amber-400/20 bg-amber-400/5 mb-4">

@@ -3,7 +3,7 @@ export interface TimelineEvent {
   sortYear?: number;
   title: string;
   summary: string;
-  details: string;
+  details?: string;
   significance: string;
   figures?: string[];
   location?: string;
