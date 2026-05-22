@@ -40,7 +40,7 @@ export default function InsightsPanel({ data, onClose }: Props) {
   const events = data.events;
 
   const wordCount = events.reduce((n, e) =>
-    n + e.details.split(/\s+/).length + e.summary.split(/\s+/).length, 0);
+    n + (e.details ?? '').split(/\s+/).length + e.summary.split(/\s+/).length, 0);
   const readMins = Math.max(1, Math.round(wordCount / 200));
 
   const allFigures = events.flatMap(e => e.figures ?? []);

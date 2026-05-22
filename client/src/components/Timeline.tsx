@@ -215,7 +215,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
       lines.push('');
       lines.push(event.summary);
       lines.push('');
-      lines.push(event.details);
+      if (event.details) lines.push(event.details);
       lines.push('');
       lines.push(`**Significance:** ${event.significance}`);
       if (event.figures?.length) lines.push(`**Key Figures:** ${event.figures.join(', ')}`);
@@ -246,7 +246,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
     const slug = data.topic.toLowerCase().replace(/\s+/g, '-');
 
     const eventsHtml = data.events.map((event, i) => {
-      const paras = event.details.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+      const paras = (event.details ?? '').split(/\n\n+/).map(p => p.trim()).filter(Boolean);
       const savedNote = (() => { try { return localStorage.getItem(`epocha-note::${noteId(event)}`) ?? ''; } catch { return ''; } })();
       return `
       <article class="event" id="event-${i}">
@@ -332,7 +332,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
 
         {/* Reading stats */}
         {(() => {
-          const wordCount = data.events.reduce((n, e) => n + e.details.split(/\s+/).length + e.summary.split(/\s+/).length, 0);
+          const wordCount = data.events.reduce((n, e) => n + (e.details ?? '').split(/\s+/).length + e.summary.split(/\s+/).length, 0);
           const mins = Math.max(1, Math.round(wordCount / 200));
           const tagCount = new Set(data.events.flatMap(e => e.tags ?? [])).size;
           return (
