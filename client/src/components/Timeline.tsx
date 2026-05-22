@@ -191,9 +191,14 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
         toast.xp('+5 XP', 'Timeline saved');
         onSaved?.();
       } else {
-        setSaveError('Failed to save');
+        try {
+          const body = await res.json() as { error?: string };
+          setSaveError(body.error ?? `Failed to save (${res.status})`);
+        } catch {
+          setSaveError(`Failed to save (${res.status})`);
+        }
       }
-    } catch { setSaveError('Failed to save'); }
+    } catch (err) { setSaveError(err instanceof Error ? err.message : 'Failed to save'); }
     setSaving(false);
   };
 
