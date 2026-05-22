@@ -48,12 +48,13 @@ function formatTtl(secs: number): string {
   return `${m}m`;
 }
 
-type NewsSource = 'llm' | 'guardian' | 'newsapi';
+type NewsSource = 'llm' | 'guardian' | 'newsapi' | 'rss';
 
 const NEWS_SOURCE_OPTIONS: { value: NewsSource; label: string; note?: string }[] = [
   { value: 'llm',      label: 'LLM (GPT-4o / Haiku)' },
-  { value: 'guardian', label: 'The Guardian',  note: 'requires guardian-api-key in Key Vault' },
-  { value: 'newsapi',  label: 'NewsAPI',        note: 'requires newsapi-key in Key Vault' },
+  { value: 'rss',      label: 'RSS Feeds',      note: 'BBC World · Al Jazeera · NPR — no API key needed' },
+  { value: 'guardian', label: 'The Guardian',   note: 'requires guardian-api-key in Key Vault' },
+  { value: 'newsapi',  label: 'NewsAPI',         note: 'requires newsapi-key in Key Vault (localhost only on free tier)' },
 ];
 
 interface TriggerCard {

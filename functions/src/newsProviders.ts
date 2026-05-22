@@ -14,12 +14,13 @@ import { AzureOpenAI } from 'openai';
 import { getSecret } from './secrets.js';
 import { getProvider } from './generation.js';
 
-export type NewsProvider = 'llm' | 'guardian' | 'newsapi';
+export type NewsProvider = 'llm' | 'guardian' | 'newsapi' | 'rss';
 
 export const NEWS_PROVIDER_LABELS: Record<NewsProvider, string> = {
   llm:      'LLM (GPT-4o / Haiku)',
   guardian: 'The Guardian',
   newsapi:  'NewsAPI',
+  rss:      'RSS Feeds (BBC, Al Jazeera, NPR)',
 };
 
 let _anthropic: Anthropic | null = null;
@@ -194,6 +195,51 @@ function parseTopicArray(text: string, log: (m: string) => void, source: string)
   }
 }
 
+// ── RSS feeds ─────────────────────────────────────────────────────────────────
+
+const RSS_FEEDS = [
+  { name: 'BBC World',   url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+  { name: 'Al Jazeera',  url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { name: 'NPR News',    url: 'https://feeds.npr.org/1001/rss.xml' },
+];
+
+function parseRssTitles(xml: string): string[] {
+  // Extract <item> blocks then pull <title> from each
+  const items = xml.match(/<item[\s\S]*?<\/item>/g) ?? [];
+  return items
+    .map(item => {
+      const m = item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>|<title>([\s\S]*?)<\/title>/);
+      return (m?.[1] ?? m?.[2] ?? '').trim();
+    })
+    .filter(t => t.length > 0 && !t.toLowerCase().includes('rss') && !t.toLowerCase().includes('feed'));
+}
+
+async function fetchFromRss(date: string, log: (m: string) => void): Promise<string[]> {
+  const results = await Promise.allSettled(
+    RSS_FEEDS.map(async feed => {
+      const res = await fetch(feed.url, {
+        headers: { 'User-Agent': 'Epocha/1.0 (educational timeline app)' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) throw new Error(`${feed.name}: HTTP ${res.status}`);
+      const xml = await res.text();
+      const titles = parseRssTitles(xml).slice(0, 10);
+      log(`[news:rss] ${feed.name}: ${titles.length} headlines`);
+      return titles;
+    })
+  );
+
+  const headlines: string[] = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled') headlines.push(...r.value);
+    else log(`[news:rss] Feed failed: ${r.reason}`);
+  }
+
+  if (headlines.length === 0) throw new Error('All RSS feeds failed');
+  log(`[news:rss] Total headlines: ${headlines.length}`);
+  return distilHeadlines(headlines, date, log, 'rss');
+}
+
 // ── Public entry point ────────────────────────────────────────────────────────
 
 export async function fetchTrendingTopics(
@@ -205,6 +251,7 @@ export async function fetchTrendingTopics(
   switch (provider) {
     case 'guardian': return fetchFromGuardian(date, log);
     case 'newsapi':  return fetchFromNewsApi(date, log);
+    case 'rss':      return fetchFromRss(date, log);
     default:         return fetchFromLlm(date, log);
   }
 }
