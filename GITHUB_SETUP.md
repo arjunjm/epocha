@@ -41,6 +41,20 @@ https://app-timelineapp-dev.azurewebsites.net/api/auth/google/callback
 
 ---
 
+## Automated issue triage and auto-fix
+
+This repository now includes two GitHub Actions workflows:
+
+1. **Adversarial QA Scan** — runs on a daily cron and creates or updates issues for repository smells it finds.
+2. **Auto-fix labeled issues** — triggers on issues labeled `auto-fix-candidate`, skips anything labeled `security`, `auth`, or `needs-human`, and opens a PR when a safe fix is made.
+
+The scan uses strict labels:
+- `triage`
+- `auto-fix-candidate`
+- `security`
+
+The auto-fix workflow is intentionally conservative. It is designed to handle low-risk, repeatable fixes and escalate sensitive findings to humans.
+
 ## Azure resources provisioned
 
 | Resource | Name | Notes |
