@@ -15,7 +15,7 @@ import {
   getCustomTopics, saveCustomTopic, deleteCustomTopic,
 } from './userStore.js';
 import { loadSecrets, getSecret } from './secrets.js';
-import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry, getAdminProgress, logSearchEvent, getAnalyticsSummary } from './cache.js';
+import { initCache, getCached, setCached, getCachedQuiz, setCachedQuiz, trackSearch, getTrendingTopics, getAdminLog, isAdminRunning, clearAdminLog, getCacheContents, deleteCacheEntry, getAdminProgress, logSearchEvent, getAnalyticsSummary, getSemanticallyCached, storeTopicEmbedding } from './cache.js';
 import { generateQuizQuestions, pickRandomQuestions } from './quiz.js';
 import { THEMES, XP_REWARDS, type User, type TimelineData } from './types.js';
 import type { AuthRequest } from './auth.js';
@@ -150,9 +150,18 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
   if (cached) {
     res.json({ cached: true, timeline: cached });
     void logSearchEvent({ topic, cacheHit: true, publicBrowse: true, ts: Date.now() });
+    // Backfill embedding if not yet stored (covers Function-pre-generated topics)
+    void storeTopicEmbedding(`timeline:${topic.toLowerCase().trim().replace(/\s+/g, '-')}:${startYear}:${endYear}`, topic);
     void enqueueRelatedTopics(cached, startYear, endYear);
   } else {
-    res.status(404).json({ cached: false });
+    // Exact miss — try semantic match before returning 404
+    const semantic = await getSemanticallyCached(topic);
+    if (semantic) {
+      res.json({ cached: true, timeline: semantic, semanticMatch: true });
+      void logSearchEvent({ topic, cacheHit: true, publicBrowse: true, ts: Date.now() });
+    } else {
+      res.status(404).json({ cached: false });
+    }
   }
 }));
 

@@ -10,6 +10,7 @@
 import Redis from 'ioredis';
 import { getSecret } from './secrets.js';
 import type { TimelineData, QuizQuestion } from './types.js';
+import { EMBEDDINGS_KEY, generateEmbedding, findBestSemanticMatch } from './embeddings.js';
 
 const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
@@ -77,8 +78,8 @@ export async function setCached(
       }
     }
     console.log(`[cache] Stored timeline for "${topic}"`);
-    // Note: trending set is written only by the Azure Function (pregenerateTrigger),
-    // not here, to avoid user searches polluting the Trending sidebar section.
+    // Store embedding for semantic search — fire-and-forget, non-critical
+    if (redis) void storeTopicEmbedding(key, topic);
   } catch (err) {
     console.warn('[cache] Failed to cache timeline:', err);
   }
@@ -286,6 +287,38 @@ export async function deleteCacheEntry(key: string): Promise<void> {
   if (!key.startsWith('timeline:')) return;
   try { await redis.del(key); }
   catch { /* non-critical */ }
+}
+
+// ── Semantic topic matching ───────────────────────────────────────────────────
+
+export async function storeTopicEmbedding(cacheKey: string, topicName: string): Promise<void> {
+  if (!redis) return;
+  try {
+    const embedding = await generateEmbedding(topicName);
+    if (!embedding) return;
+    await redis.hset(EMBEDDINGS_KEY, cacheKey, JSON.stringify(embedding));
+  } catch { /* non-critical */ }
+}
+
+/**
+ * Semantic fallback for getCached — finds the closest matching cached timeline
+ * by topic name embedding similarity. Returns null if no match exceeds threshold.
+ */
+export async function getSemanticallyCached(topic: string): Promise<TimelineData | null> {
+  if (!redis) return null;
+  try {
+    const allEmbeddings = await redis.hgetall(EMBEDDINGS_KEY);
+    if (!allEmbeddings || Object.keys(allEmbeddings).length === 0) return null;
+
+    const match = await findBestSemanticMatch(topic, allEmbeddings);
+    if (!match) return null;
+
+    const raw = await redis.get(match.cacheKey);
+    if (!raw) return null;
+
+    console.log(`[cache] Semantic match: "${topic}" → "${match.cacheKey}" (score: ${match.score.toFixed(3)})`);
+    return JSON.parse(raw) as TimelineData;
+  } catch { return null; }
 }
 
 // ── Search analytics ──────────────────────────────────────────────────────────
