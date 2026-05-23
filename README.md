@@ -24,7 +24,8 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 - **Learning Paths** — 5 curated sequences with per-step checkmarks and localStorage progress
 
 ### Discovery
-- **Trending topics** — LLM-sourced current events, pre-generated nightly
+- **Trending topics** — up to 15 current events shown in sidebar; sourced via pluggable news providers (RSS feeds or LLM)
+- **News providers** — admin can select trending topic source: LLM (default, nightly), RSS feeds (BBC World · Al Jazeera · NPR, no API key needed)
 - **Discover page** — visual grid of all built-in topics with search and category filter
 - **Historical Spotlight** — random event from a cached timeline on the home screen
 - **Related topics** — 4–5 related topics at the bottom of every timeline; pre-warmed in background
@@ -38,7 +39,8 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 - **In-timeline search** — live keyword filter across title, summary, significance, figures, location
 - **Tag filter** — multi-select theme filter
 
-### Personalisation
+### Personalisation & stats
+- **Stats page** — dedicated page showing quiz history (score, XP, date — persisted in Cosmos DB), completed topics, and recently explored timelines
 - **Gamification** — 20 levels, XP system, 8 achievement badges, Steam-style showcase
 - **Bookmarks** — save individual events across sessions
 - **Collections** — save full timelines to named collections (Cosmos DB)
@@ -77,7 +79,7 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Client (React/Vite)                       │
-│  Sidebar · Timeline · Quiz · Flashcards · Insights · Admin       │
+│  Sidebar · Timeline · Quiz · Flashcards · Insights · Stats · Admin │
 └───────────────────────┬─────────────────────────────────────────┘
                         │  HTTPS + SSE streaming
 ┌───────────────────────▼─────────────────────────────────────────┐
@@ -91,8 +93,11 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 │  claude-    │  │   DB (NoSQL)    │  │  timeline cache (7d)    │
 │  haiku-4.5  │  │  users · saved  │  │  quiz cache             │
 │             │  │  timelines      │  │  search analytics       │
-└─────────────┘  └─────────────────┘  │  trending topics        │
-                                       └──────────┬─────────────┘
+│  Azure      │  │  quiz results   │  │  trending topics        │
+│  OpenAI     │  └─────────────────┘  │  topic embeddings       │
+│  (embed +   │                       └──────────┬─────────────┘
+│  GPT-4o)    │
+└─────────────┘
                                                   │ enqueue related topics
                                        ┌──────────▼─────────────┐
                                        │  Azure Storage Queue    │
@@ -117,7 +122,8 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 |-------|-----------|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS |
 | Backend | Node.js 22, Express, TypeScript |
-| LLM | Anthropic `claude-haiku-4-5` (default) — switchable to Azure OpenAI |
+| LLM | Azure OpenAI `gpt-4o` (production) — switchable to Anthropic `claude-haiku-4-5` |
+| Embeddings | Azure OpenAI `text-embedding-3-small` — semantic topic name matching |
 | Auth | Google OAuth 2.0, JWT cookies, Passport.js |
 | Database | Azure Cosmos DB (NoSQL, serverless) |
 | Cache | Azure Cache for Redis (C0, 7-day TTL) |
@@ -133,11 +139,13 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 The app abstracts the LLM provider via `server/src/llm.ts`. Switch by setting a Key Vault secret:
 
 ```
-llm-provider = anthropic      # default — claude-haiku-4-5
-llm-provider = azure-openai   # requires three extra secrets (see below)
+llm-provider = azure-openai   # production default — gpt-4o
+llm-provider = anthropic      # alternative — claude-haiku-4-5
 ```
 
-Azure OpenAI extra secrets: `azure-openai-endpoint`, `azure-openai-key`, `azure-openai-deployment`.
+Azure OpenAI requires: `azure-openai-endpoint`, `azure-openai-key`, `azure-openai-deployment`.
+
+**Embeddings** always use Azure OpenAI (`text-embedding-3-small`) regardless of the LLM provider setting. Requires `azure-openai-embedding-deployment` in Key Vault.
 
 ---
 
@@ -157,6 +165,7 @@ timeline:<normalised-topic>:<startYear>:<endYear>
 - `epocha:trending-topics` — recently generated topics for the Trending sidebar section
 - `epocha:popular-topics` — search frequency per topic, used for demand-driven pre-caching
 - `epocha:analytics:searches` — search event log (2000 entries, 7-day window) for admin analytics
+- `epocha:topic-embeddings` — Redis hash of topic name embeddings for semantic cache matching; backfilled on every cache hit
 
 ---
 
@@ -174,6 +183,14 @@ Nightly queue phases (2AM UTC):
 2. Popular searches — top 30 from `epocha:popular-topics` + their related topics
 3. AI-suggested — 15 historically interesting topics from the LLM
 4. Sidebar defaults — all ~40 taxonomy topics kept fresh
+
+**Trending news providers** — the manual `generateTrendingEvents` trigger in the admin page supports three sources:
+
+| Provider | Source | Notes |
+|----------|--------|-------|
+| LLM (default) | GPT-4o training knowledge | Used by nightly timer |
+| RSS Feeds | BBC World · Al Jazeera · NPR | No API key needed; headlines distilled by LLM |
+| The Guardian | Guardian Open Platform API | Requires `guardian-api-key` in Key Vault |
 
 ---
 
@@ -223,11 +240,14 @@ Deployments trigger automatically on push to `master` via GitHub Actions:
 
 **Key Vault secrets:**
 ```
-anthropic-api-key         llm-provider
-azure-openai-endpoint     azure-openai-key        azure-openai-deployment
-google-client-id          google-client-secret
-jwt-secret                cosmos-endpoint         cosmos-key
-redis-url                 storage-connection-string
+anthropic-api-key                  llm-provider
+azure-openai-endpoint              azure-openai-key
+azure-openai-deployment            azure-openai-embedding-deployment
+google-client-id                   google-client-secret
+google-callback-url                jwt-secret
+cosmos-endpoint                    cosmos-key
+redis-url                          storage-connection-string
+guardian-api-key                   (optional — Guardian RSS provider)
 ```
 
 ---
@@ -246,14 +266,16 @@ redis-url                 storage-connection-string
 │   └── src/
 │       ├── index.ts      Routes, SSE streaming, analytics logging
 │       ├── llm.ts        LLM provider abstraction (Anthropic / Azure OpenAI)
-│       ├── cache.ts      Redis + in-memory cache, analytics, trending
+│       ├── cache.ts      Redis + in-memory cache, analytics, trending, embeddings
+│       ├── embeddings.ts Azure OpenAI text-embedding-3-small, cosine similarity, semantic match
 │       ├── queue.ts      Azure Storage Queue producer (enqueueRelatedTopics)
-│       ├── userStore.ts  Cosmos DB — users, XP, saves, themes
+│       ├── userStore.ts  Cosmos DB — users, XP, saves, themes, quiz results
 │       ├── quiz.ts       Quiz question generation
 │       └── auth.ts       Google OAuth + JWT
 ├── functions/       Azure Functions — queue consumer + producers
 │   └── src/
 │       ├── generateSingle.ts      Timer consumer (processPregenQueue, every 10s)
+│       ├── newsProviders.ts       Trending topic sources (LLM, RSS, Guardian)
 │       └── pregenerateTrigger.ts  HTTP + timer producers
 ├── tests/smoke/     Post-deploy smoke tests (Vitest)
 └── infra/           Bicep IaC (Key Vault, App Service, Cosmos, Redis, Queue, Functions)
