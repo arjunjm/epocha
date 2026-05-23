@@ -132,7 +132,7 @@ Rules:
 
 // Public trending topics — topics pre-generated beyond the default sidebar list
 app.get('/api/timeline/trending', ah(async (_req, res) => {
-  const topics = await getTrendingTopics(20);
+  const topics = await getTrendingTopics(15);
   res.json(topics);
 }));
 
