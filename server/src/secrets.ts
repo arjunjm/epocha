@@ -36,6 +36,9 @@ const SECRET_NAMES = [
   'azure-openai-endpoint',
   'azure-openai-key',
   'azure-openai-deployment',
+  'azure-openai-embedding-deployment',
+  'guardian-api-key',
+  'newsapi-key',
 ];
 
 export async function loadSecrets(): Promise<void> {
