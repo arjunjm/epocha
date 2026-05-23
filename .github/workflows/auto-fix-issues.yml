@@ -28,6 +28,23 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Auto-label scan issues
+        if: "contains(github.event.issue.body, 'epocha-scan-fingerprint')"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isSecurity = ${{ toJson(github.event.issue.labels) }}.some(l =>
+              ['security', 'auth', 'needs-human'].includes(l.name)
+            );
+            if (!isSecurity && !${{ toJson(github.event.issue.labels) }}.some(l => l.name === 'auto-fix-candidate')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: ['auto-fix-candidate']
+              });
+            }
+
       - name: Detect security labels
         id: gate
         env:
