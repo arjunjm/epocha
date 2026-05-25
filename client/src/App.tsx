@@ -44,6 +44,7 @@ export default function App() {
   const { save: saveSession, clear: clearSession } = useSession();
   const [prevLevel, setPrevLevel] = useState(user?.level ?? 1);
   const [timeline, setTimeline] = useState<TimelineData | null>(null);
+  const [timelineYears, setTimelineYears] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [sessionRestored, setSessionRestored] = useState(false);
   const [status, setStatus] = useState<AppStatus>({ loading: false });
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -114,6 +115,7 @@ export default function App() {
     const session = loadSession();
     if (session) {
       setTimeline(session.timeline);
+      setTimelineYears({ start: session.startYear, end: session.endYear });
       setActiveTopic(session.topic);
       pushTimelineUrl(session.topic, session.startYear, session.endYear);
       setSessionRestored(true);
@@ -143,6 +145,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json() as { cached: boolean; timeline: TimelineData };
         setTimeline(data.timeline);
+        setTimelineYears({ start: startYear, end: endYear });
         setStatus({ loading: false });
         pushTimelineUrl(topic, startYear, endYear);
         pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
@@ -213,6 +216,7 @@ export default function App() {
             } else if (data.type === 'complete' && data.timeline) {
               streamCompleted = true;
               setTimeline(data.timeline);
+              setTimelineYears({ start: startYear, end: endYear });
               setStreamingMeta(null);
               setStreamingEvents([]);
               setTimelineWarning(data.warning);
@@ -266,6 +270,7 @@ export default function App() {
         if (res.ok) {
           const data = await res.json() as { cached: boolean; timeline: TimelineData };
           setTimeline(data.timeline);
+          setTimelineYears({ start: startYear, end: endYear });
           setStreamingMeta(null);
           setGenerationStartTime(null);
           setStatus({ loading: false });
@@ -576,6 +581,8 @@ export default function App() {
               <div className="max-w-4xl mx-auto px-5 pb-24">
                 <Timeline
                   data={{ topic: streamingMeta.topic, period: streamingMeta.period, description: streamingMeta.description, events: streamingEvents }}
+                  startYear={streamingMeta.period.split(' – ')[0] ?? ''}
+                  endYear={streamingMeta.period.split(' – ')[1] ?? ''}
                   onReset={handleReset}
                   user={user}
                   onSignIn={signIn}
@@ -666,11 +673,13 @@ export default function App() {
                 )}
                 <Timeline
                   data={timeline}
+                  startYear={timelineYears.start}
+                  endYear={timelineYears.end}
                   onReset={handleReset}
                   onRelatedSelect={user ? handleRelatedSelect : undefined}
                   onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
-                  onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
-                  onUpgradeLite={user && timeline.events.some(e => !e.details) ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
+                  onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timelineYears.start, timelineYears.end, true) : undefined}
+                  onUpgradeLite={user && timeline.events.some(e => !e.details) ? () => void handleGenerate(timeline.topic, timelineYears.start, timelineYears.end, true) : undefined}
                   onSaved={() => setCollectionsRefreshKey(k => k + 1)}
                   warning={timelineWarning}
                   user={user}
