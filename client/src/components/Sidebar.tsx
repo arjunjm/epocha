@@ -348,11 +348,7 @@ export default function Sidebar({ onSelect, activeTopic, isOpen, onClose, user, 
           </div>
         </div>
 
-        <div className="px-4 py-3 border-t border-white/5 flex-shrink-0">
-          <p className="text-[10px] text-slate-700 leading-relaxed">
-            Sidebar topics load from cache instantly.
-          </p>
-        </div>
+        <div className="px-4 py-3 border-t border-white/5 flex-shrink-0" />
       </aside>
     </>
   );
