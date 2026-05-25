@@ -115,6 +115,7 @@ export default function App() {
     const session = loadSession();
     if (session) {
       setTimeline(session.timeline);
+      setTimelineYears({ start: session.startYear, end: session.endYear });
       setActiveTopic(session.topic);
       pushTimelineUrl(session.topic, session.startYear, session.endYear);
       setSessionRestored(true);
@@ -204,7 +205,7 @@ export default function App() {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           try {
-            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string; event?: import('./types').TimelineEvent; warning?: string };
+            const data = JSON.parse(line.slice(6)) as { type: string; message?: string; timeline?: TimelineData; topic?: string; period?: string; description?: string; event?: import('./types').TimelineEvent; warning?: string; cacheStartYear?: string; cacheEndYear?: string };
             if (data.type === 'status' && data.message) {
               setStatus({ loading: true, message: data.message });
             } else if (data.type === 'meta' && data.topic) {
@@ -214,15 +215,19 @@ export default function App() {
               setStreamingEvents(prev => [...prev, data.event!]);
             } else if (data.type === 'complete' && data.timeline) {
               streamCompleted = true;
+              // Server resolves the actual cache years (extracts from period when user
+              // didn't specify years). Use those so the quiz lookup matches the cache key.
+              const finalStart = data.cacheStartYear ?? startYear;
+              const finalEnd = data.cacheEndYear ?? endYear;
               setTimeline(data.timeline);
-              setTimelineYears({ start: startYear, end: endYear });
+              setTimelineYears({ start: finalStart, end: finalEnd });
               setStreamingMeta(null);
               setStreamingEvents([]);
               setTimelineWarning(data.warning);
               setStatus({ loading: false });
-              pushTimelineUrl(topic, startYear, endYear);
-              pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
-              saveSession(topic, startYear, endYear, data.timeline);
+              pushTimelineUrl(topic, finalStart, finalEnd);
+              pushHistory({ topic, start: finalStart, end: finalEnd, title: data.timeline.topic });
+              saveSession(topic, finalStart, finalEnd, data.timeline);
               if (!extra?.publicBrowse) { toast.xp('+10 XP', 'Timeline generated'); void refresh(); }
             } else if (data.type === 'error' && data.message) {
               throw new Error(data.message);

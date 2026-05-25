@@ -80,7 +80,7 @@ async function processOne(
     const result = await generateTimeline(job);
 
     if (result) {
-      const parsed = JSON.parse(result) as { period?: string };
+      const parsed = JSON.parse(result) as { period?: string; topic?: string };
 
       // For trending topics without explicit years, extract from the period
       let finalStartYear = job.startYear;
@@ -103,8 +103,18 @@ async function processOne(
       const finalKey = cacheKey(job.topic, finalStartYear, finalEndYear);
       await redis.setex(finalKey, TIMELINE_TTL, result);
 
+      // The AI sometimes changes the topic name (e.g. adds "The " prefix). Cache under
+      // the AI's name too so the quiz — which uses data.topic from the timeline — can find it.
+      const aiTopic = parsed.topic;
+      if (aiTopic && aiTopic.trim().toLowerCase() !== job.topic.trim().toLowerCase()) {
+        const aiKey = cacheKey(aiTopic, finalStartYear, finalEndYear);
+        if (aiKey !== finalKey) await redis.setex(aiKey, TIMELINE_TTL, result);
+      }
+
+      // Use the AI's topic name in trending metadata for consistency with quiz lookups
+      const trendingTopic = aiTopic || job.topic;
       const meta = JSON.stringify({
-        topic: job.topic, startYear: finalStartYear,
+        topic: trendingTopic, startYear: finalStartYear,
         endYear: finalEndYear, period: parsed.period ?? '',
       });
       await redis.zadd('epocha:trending-topics', Date.now(), meta);
@@ -117,7 +127,14 @@ async function processOne(
         if (job.forceRegenerate || await redis.ttl(quizKey) <= 86400) {
           if (job.forceRegenerate) await redis.del(quizKey);
           const quiz = await generateQuiz(result);
-          if (quiz) await redis.setex(quizKey, TIMELINE_TTL, quiz);
+          if (quiz) {
+            await redis.setex(quizKey, TIMELINE_TTL, quiz);
+            // Also store quiz under AI's topic key for consistent lookup
+            if (aiTopic && aiTopic.trim().toLowerCase() !== job.topic.trim().toLowerCase()) {
+              const aiQuizKey = `quiz:${cacheKey(aiTopic, finalStartYear, finalEndYear)}`;
+              if (aiQuizKey !== quizKey) await redis.setex(aiQuizKey, TIMELINE_TTL, quiz);
+            }
+          }
         }
       } catch (qErr) {
         await makePipeline(redis, `Quiz failed for ${job.topic}: ${qErr}`);

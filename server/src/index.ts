@@ -154,6 +154,12 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
     // Backfill embedding if not yet stored (covers Function-pre-generated topics)
     void storeTopicEmbedding(`timeline:${topic.toLowerCase().trim().replace(/\s+/g, '-')}:${startYear}:${endYear}`, topic);
     void enqueueRelatedTopics(cached, startYear, endYear);
+    // Lazy alias: if the AI's topic name differs from the request topic, create a
+    // secondary cache entry under the AI's name. The quiz uses data.topic (the AI name)
+    // for its lookup, so this ensures existing entries work without a full regeneration.
+    if (cached.topic && cached.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+      void setCached(cached.topic, startYear, endYear, cached);
+    }
   } else {
     // Exact miss — try semantic match before returning 404
     const semantic = await getSemanticallyCached(topic);
@@ -210,10 +216,28 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     if (cached) {
       send({ type: 'status', message: 'Loading from cache…' });
       await new Promise(r => setTimeout(r, 300));
-      send({ type: 'complete', timeline: cached });
+      // Resolve cache years: for old entries stored with empty years, extract from the
+      // AI's period so the client uses the same key the quiz endpoint will look up.
+      let hitCacheStart = startYear;
+      let hitCacheEnd = endYear;
+      if ((!startYear || !endYear) && cached.period) {
+        const yearMatch = cached.period.match(/(\d{4})/g);
+        if (yearMatch && yearMatch.length >= 1) {
+          if (!startYear) hitCacheStart = yearMatch[0]!;
+          if (!endYear) hitCacheEnd = yearMatch[yearMatch.length - 1]!;
+        }
+      }
+      // Migrate old empty-year entry to extracted-year key so quiz can find it
+      if (hitCacheStart !== startYear || hitCacheEnd !== endYear) {
+        void setCached(topic, hitCacheStart, hitCacheEnd, cached);
+        if (cached.topic && cached.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+          void setCached(cached.topic, hitCacheStart, hitCacheEnd, cached);
+        }
+      }
+      send({ type: 'complete', timeline: cached, cacheStartYear: hitCacheStart, cacheEndYear: hitCacheEnd });
       if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
       void logSearchEvent({ topic, userId: authReq.user?.id, cacheHit: true, publicBrowse: !!publicBrowse, ts: Date.now() });
-      void enqueueRelatedTopics(cached, startYear, endYear);
+      void enqueueRelatedTopics(cached, hitCacheStart, hitCacheEnd);
       res.end();
       return;
     }
@@ -281,21 +305,45 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     );
 
     const isIncomplete = timeline.events.length < 5;
-    if (!isIncomplete) {
-      await setCached(topic, startYear, endYear, timeline);
-      if (authReq.user && !publicBrowse) void trackSearch(topic, startYear, endYear);
+
+    // Derive the actual years used for caching: prefer user-specified, fall back to
+    // 4-digit years extracted from the AI's period string. This ensures the cache key
+    // matches what the quiz endpoint will look up (which reads these back from the client).
+    let cacheStart = startYear;
+    let cacheEnd = endYear;
+    if ((!startYear || !endYear) && timeline.period) {
+      const yearMatch = timeline.period.match(/(\d{4})/g);
+      if (yearMatch && yearMatch.length >= 1) {
+        if (!startYear) cacheStart = yearMatch[0]!;
+        if (!endYear) cacheEnd = yearMatch[yearMatch.length - 1]!;
+      }
     }
 
-    send({ type: 'complete', timeline, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
+    if (!isIncomplete) {
+      await setCached(topic, cacheStart, cacheEnd, timeline);
+      // The AI sometimes changes the topic name (e.g. adds "The " prefix). Cache under
+      // both so the quiz — which uses data.topic from the rendered timeline — can find it.
+      if (timeline.topic && timeline.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+        await setCached(timeline.topic, cacheStart, cacheEnd, timeline);
+      }
+      if (authReq.user && !publicBrowse) void trackSearch(topic, cacheStart, cacheEnd);
+    }
+
+    // Include the resolved cache years in the complete event so the client can use them
+    // verbatim for quiz lookups, instead of re-parsing the period string.
+    send({ type: 'complete', timeline, cacheStartYear: cacheStart, cacheEndYear: cacheEnd, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
 
     if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
     void logSearchEvent({ topic, userId: authReq.user?.id, cacheHit: false, publicBrowse: !!publicBrowse, ts: Date.now() });
 
     // Generate quiz questions in background (don't block response)
-    void generateQuizAndCache(topic, startYear, endYear, timeline);
+    void generateQuizAndCache(topic, cacheStart, cacheEnd, timeline);
+    if (timeline.topic && timeline.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+      void generateQuizAndCache(timeline.topic, cacheStart, cacheEnd, timeline);
+    }
 
     // Pre-warm related topics + next era (full mode only — lite results are transient)
-    if (!isIncomplete && !liteMode) void enqueueRelatedTopics(timeline, startYear, endYear);
+    if (!isIncomplete && !liteMode) void enqueueRelatedTopics(timeline, cacheStart, cacheEnd);
 
   } catch (error) {
     let message = error instanceof Error ? error.message : 'An unknown error occurred';
