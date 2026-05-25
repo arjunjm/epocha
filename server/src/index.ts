@@ -330,29 +330,60 @@ async function generateQuizAndCache(topic: string, startYear: string, endYear: s
 
 // ── Quiz routes ────────────────────────────────────────────────────────────
 
-app.get('/api/quiz', optAuth, ah(async (req, res) => {
-  const { topic, startYear, endYear } = req.query as { topic?: string; startYear?: string; endYear?: string };
-  if (!topic || !startYear || !endYear) {
-    res.status(400).json({ error: 'Missing required params' });
-    return;
-  }
-
-  let questions = await getCachedQuiz(topic, startYear, endYear);
+const handleQuiz = async (topic: string, startYear: string, endYear: string, timeline?: TimelineData) => {
+  let questions = startYear && endYear ? await getCachedQuiz(topic, startYear, endYear) : null;
 
   if (!questions || questions.length < 5) {
-    // Try to generate on-demand if timeline exists
-    const timeline = await getCached(topic, startYear, endYear);
-    if (!timeline) { res.status(404).json({ error: 'No timeline cached for this topic. View it first.' }); return; }
-    questions = await generateQuizQuestions(timeline);
-    if (questions.length > 0) await setCachedQuiz(topic, startYear, endYear, questions);
+    // If timeline provided in request body, use it directly
+    let timelineToUse = timeline;
+    if (!timelineToUse && startYear && endYear) {
+      // Try to load from cache if years are available
+      timelineToUse = await getCached(topic, startYear, endYear);
+    }
+    if (!timelineToUse) {
+      return { error: 'No timeline data available. View the timeline first.' };
+    }
+    questions = await generateQuizQuestions(timelineToUse);
+    if (questions.length > 0 && startYear && endYear) {
+      await setCachedQuiz(topic, startYear, endYear, questions);
+    }
   }
 
   if (!questions || questions.length === 0) {
-    res.status(404).json({ error: 'Could not generate quiz questions for this topic.' });
+    return { error: 'Could not generate quiz questions for this topic.' };
+  }
+
+  return { questions: pickRandomQuestions(questions, 5) };
+};
+
+app.get('/api/quiz', optAuth, ah(async (req, res) => {
+  const { topic, startYear, endYear } = req.query as { topic?: string; startYear?: string; endYear?: string };
+  if (!topic) {
+    res.status(400).json({ error: 'Missing required param: topic' });
     return;
   }
 
-  res.json({ questions: pickRandomQuestions(questions, 5) });
+  const result = await handleQuiz(topic, startYear ?? '', endYear ?? '');
+  if ('error' in result) {
+    res.status(404).json(result);
+  } else {
+    res.json(result);
+  }
+}));
+
+app.post('/api/quiz', optAuth, ah(async (req, res) => {
+  const { topic, startYear, endYear, timeline } = req.body as { topic?: string; startYear?: string; endYear?: string; timeline?: TimelineData };
+  if (!topic) {
+    res.status(400).json({ error: 'Missing required param: topic' });
+    return;
+  }
+
+  const result = await handleQuiz(topic, startYear ?? '', endYear ?? '', timeline);
+  if ('error' in result) {
+    res.status(404).json(result);
+  } else {
+    res.json(result);
+  }
 }));
 
 app.post('/api/quiz/complete', auth, ah(async (req, res) => {

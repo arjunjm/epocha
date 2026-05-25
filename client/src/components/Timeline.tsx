@@ -389,14 +389,18 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
             <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
               {total} events
             </span>
-            {startYear && endYear && !isLiteMode && (
-              <button
-                onClick={() => setShowQuiz(true)}
-                className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
-              >
-                🧠 Quiz
-              </button>
-            )}
+            <button
+              onClick={() => setShowQuiz(true)}
+              disabled={isLiteMode}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                isLiteMode
+                  ? 'text-slate-600 border border-slate-700/30 bg-slate-700/5 cursor-not-allowed'
+                  : 'text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10'
+              }`}
+              title={isLiteMode ? 'Quiz unavailable for lite mode timelines. View the full timeline to enable quizzes.' : undefined}
+            >
+              🧠 Quiz
+            </button>
             {!saved ? (
               <button
                 onClick={() => setShowSaveForm(s => !s)}
@@ -795,6 +799,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
           topic={data.topic}
           startYear={startYear}
           endYear={endYear}
+          timeline={!isLiteMode ? data : undefined}
           onClose={() => setShowQuiz(false)}
           onComplete={handleQuizComplete}
         />
