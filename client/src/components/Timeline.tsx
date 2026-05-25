@@ -18,8 +18,6 @@ import type { AuthUser } from '../hooks/useAuth';
 
 interface Props {
   data: TimelineData;
-  startYear: string;
-  endYear: string;
   onReset: () => void;
   onRelatedSelect?: (topic: string) => void;
   onContinue?: (topic: string, start: string, end: string) => void;
@@ -55,7 +53,7 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, startYear, endYear, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, warning, user, onSignIn }: Props) {
+export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, warning, user, onSignIn }: Props) {
   const total = data.events.length;
   const isLiteMode = data.events.some(e => !e.details);
   const [saving, setSaving] = useState(false);
@@ -159,9 +157,13 @@ export default function Timeline({ data, startYear, endYear, onReset, onRelatedS
   const noteId = (event: import('../types').TimelineEvent) =>
     `${data.topic}::${event.date}::${event.title}`;
 
+  const topicParts = data.period.split(' to ');
+  const startYear = topicParts[0]?.replace(/\D/g, '') || topicParts[0]?.trim() || '';
+  const endYear = topicParts[1]?.replace(/\D/g, '') || topicParts[1]?.trim() || '';
+
   const nextEraPeriod = (() => {
-    const s = parseInt(startYear.replace(/\D/g, ''), 10);
-    const e = parseInt(endYear.replace(/\D/g, ''), 10);
+    const s = parseInt(startYear, 10);
+    const e = parseInt(endYear, 10);
     if (isNaN(s) || isNaN(e) || e >= 2100) return null;
     const span = Math.max(10, e - s);
     return { start: String(e), end: String(e + span) };
