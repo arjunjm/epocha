@@ -20,26 +20,26 @@ const mockTimeline: TimelineData = {
 
 describe('Related Topics gating', () => {
   it('shows Related Topics section when onRelatedSelect is provided', () => {
-    render(<Timeline data={mockTimeline} onReset={vi.fn()} onRelatedSelect={vi.fn()} />);
+    render(<Timeline data={mockTimeline} startYear="800 BCE" endYear="146 BCE" onReset={vi.fn()} onRelatedSelect={vi.fn()} />);
     expect(screen.getByText('Related Topics')).toBeInTheDocument();
     expect(screen.getByText(/The Roman Empire/)).toBeInTheDocument();
   });
 
   it('hides Related Topics section when onRelatedSelect is undefined (not signed in)', () => {
-    render(<Timeline data={mockTimeline} onReset={vi.fn()} onRelatedSelect={undefined} />);
+    render(<Timeline data={mockTimeline} startYear="800 BCE" endYear="146 BCE" onReset={vi.fn()} onRelatedSelect={undefined} />);
     expect(screen.queryByText('Related Topics')).not.toBeInTheDocument();
   });
 
   it('calls onRelatedSelect with the topic name when a chip is clicked', async () => {
     const onRelatedSelect = vi.fn();
-    render(<Timeline data={mockTimeline} onReset={vi.fn()} onRelatedSelect={onRelatedSelect} />);
+    render(<Timeline data={mockTimeline} startYear="800 BCE" endYear="146 BCE" onReset={vi.fn()} onRelatedSelect={onRelatedSelect} />);
     await userEvent.click(screen.getByText(/The Roman Empire/));
     expect(onRelatedSelect).toHaveBeenCalledWith('The Roman Empire');
   });
 
   it('does not render related chips for a timeline with no relatedTopics', () => {
     const noRelated: TimelineData = { ...mockTimeline, relatedTopics: [] };
-    render(<Timeline data={noRelated} onReset={vi.fn()} onRelatedSelect={vi.fn()} />);
+    render(<Timeline data={noRelated} startYear="800 BCE" endYear="146 BCE" onReset={vi.fn()} onRelatedSelect={vi.fn()} />);
     expect(screen.queryByText('Related Topics')).not.toBeInTheDocument();
   });
 });
