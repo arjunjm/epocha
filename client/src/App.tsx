@@ -64,6 +64,7 @@ export default function App() {
   const [generationStartTime, setGenerationStartTime] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const lastAttemptRef = useRef<(() => void) | null>(null);
+  const [timelineYears, setTimelineYears] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Tick elapsed timer while a generation is in progress (Feature 9)
@@ -143,6 +144,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json() as { cached: boolean; timeline: TimelineData };
         setTimeline(data.timeline);
+        setTimelineYears({ start: startYear, end: endYear });
         setStatus({ loading: false });
         pushTimelineUrl(topic, startYear, endYear);
         pushHistory({ topic, start: startYear, end: endYear, title: data.timeline.topic });
@@ -213,6 +215,7 @@ export default function App() {
             } else if (data.type === 'complete' && data.timeline) {
               streamCompleted = true;
               setTimeline(data.timeline);
+              setTimelineYears({ start: startYear, end: endYear });
               setStreamingMeta(null);
               setStreamingEvents([]);
               setTimelineWarning(data.warning);
@@ -266,6 +269,7 @@ export default function App() {
         if (res.ok) {
           const data = await res.json() as { cached: boolean; timeline: TimelineData };
           setTimeline(data.timeline);
+          setTimelineYears({ start: startYear, end: endYear });
           setStreamingMeta(null);
           setGenerationStartTime(null);
           setStatus({ loading: false });
@@ -666,11 +670,13 @@ export default function App() {
                 )}
                 <Timeline
                   data={timeline}
+                  requestStartYear={timelineYears.start}
+                  requestEndYear={timelineYears.end}
                   onReset={handleReset}
                   onRelatedSelect={user ? handleRelatedSelect : undefined}
                   onContinue={(topic, start, end) => void handleBrowse(topic, start, end)}
-                  onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
-                  onUpgradeLite={user && timeline.events.some(e => !e.details) ? () => void handleGenerate(timeline.topic, timeline.period.split(' to ')[0] ?? '', timeline.period.split(' to ')[1] ?? '', true) : undefined}
+                  onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timelineYears.start, timelineYears.end, true) : undefined}
+                  onUpgradeLite={user && timeline.events.some(e => !e.details) ? () => void handleGenerate(timeline.topic, timelineYears.start, timelineYears.end, true) : undefined}
                   onSaved={() => setCollectionsRefreshKey(k => k + 1)}
                   warning={timelineWarning}
                   user={user}

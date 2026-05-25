@@ -337,12 +337,17 @@ app.get('/api/quiz', optAuth, ah(async (req, res) => {
     return;
   }
 
+  console.log(`[quiz] lookup: "${topic}" [${startYear} → ${endYear}]`);
   let questions = await getCachedQuiz(topic, startYear, endYear);
 
   if (!questions || questions.length < 5) {
-    // Try to generate on-demand if timeline exists
+    // Try to generate on-demand if timeline exists in cache
     const timeline = await getCached(topic, startYear, endYear);
-    if (!timeline) { res.status(404).json({ error: 'No timeline cached for this topic. View it first.' }); return; }
+    if (!timeline) {
+      console.warn(`[quiz] cache miss — no timeline found for "${topic}" [${startYear} → ${endYear}]`);
+      res.status(404).json({ error: 'No timeline cached for this topic. View it first.' });
+      return;
+    }
     questions = await generateQuizQuestions(timeline);
     if (questions.length > 0) await setCachedQuiz(topic, startYear, endYear, questions);
   }
