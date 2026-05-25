@@ -281,7 +281,7 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     );
 
     const isIncomplete = timeline.events.length < 5;
-    if (!isIncomplete && !liteMode) {
+    if (!isIncomplete) {
       await setCached(topic, startYear, endYear, timeline);
       if (authReq.user && !publicBrowse) void trackSearch(topic, startYear, endYear);
     }
