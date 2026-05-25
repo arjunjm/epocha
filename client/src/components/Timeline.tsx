@@ -389,12 +389,14 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
             <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
               {total} events
             </span>
-            <button
-              onClick={() => setShowQuiz(true)}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
-            >
-              🧠 Quiz
-            </button>
+            {startYear && endYear && !isLiteMode && (
+              <button
+                onClick={() => setShowQuiz(true)}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold text-violet-300 border border-violet-400/30 bg-violet-400/5 hover:bg-violet-400/10 transition-colors"
+              >
+                🧠 Quiz
+              </button>
+            )}
             {!saved ? (
               <button
                 onClick={() => setShowSaveForm(s => !s)}
