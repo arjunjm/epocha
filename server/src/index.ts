@@ -154,6 +154,12 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
     // Backfill embedding if not yet stored (covers Function-pre-generated topics)
     void storeTopicEmbedding(`timeline:${topic.toLowerCase().trim().replace(/\s+/g, '-')}:${startYear}:${endYear}`, topic);
     void enqueueRelatedTopics(cached, startYear, endYear);
+    // Lazy alias: if the AI's topic name differs from the request topic, create a
+    // secondary cache entry under the AI's name. The quiz uses data.topic (the AI name)
+    // for its lookup, so this ensures existing entries work without a full regeneration.
+    if (cached.topic && cached.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+      void setCached(cached.topic, startYear, endYear, cached);
+    }
   } else {
     // Exact miss — try semantic match before returning 404
     const semantic = await getSemanticallyCached(topic);
@@ -210,10 +216,28 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     if (cached) {
       send({ type: 'status', message: 'Loading from cache…' });
       await new Promise(r => setTimeout(r, 300));
-      send({ type: 'complete', timeline: cached });
+      // Resolve cache years: for old entries stored with empty years, extract from the
+      // AI's period so the client uses the same key the quiz endpoint will look up.
+      let hitCacheStart = startYear;
+      let hitCacheEnd = endYear;
+      if ((!startYear || !endYear) && cached.period) {
+        const yearMatch = cached.period.match(/(\d{4})/g);
+        if (yearMatch && yearMatch.length >= 1) {
+          if (!startYear) hitCacheStart = yearMatch[0]!;
+          if (!endYear) hitCacheEnd = yearMatch[yearMatch.length - 1]!;
+        }
+      }
+      // Migrate old empty-year entry to extracted-year key so quiz can find it
+      if (hitCacheStart !== startYear || hitCacheEnd !== endYear) {
+        void setCached(topic, hitCacheStart, hitCacheEnd, cached);
+        if (cached.topic && cached.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+          void setCached(cached.topic, hitCacheStart, hitCacheEnd, cached);
+        }
+      }
+      send({ type: 'complete', timeline: cached, cacheStartYear: hitCacheStart, cacheEndYear: hitCacheEnd });
       if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
       void logSearchEvent({ topic, userId: authReq.user?.id, cacheHit: true, publicBrowse: !!publicBrowse, ts: Date.now() });
-      void enqueueRelatedTopics(cached, startYear, endYear);
+      void enqueueRelatedTopics(cached, hitCacheStart, hitCacheEnd);
       res.end();
       return;
     }
