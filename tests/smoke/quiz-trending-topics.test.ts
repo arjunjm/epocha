@@ -62,4 +62,41 @@ describe('Quiz endpoint with trending topics', () => {
       expect(typeof topic.end).toBe('string');
     }
   });
+
+  it('sidebar topics can request quiz questions via the quiz endpoint', async () => {
+    // Import sidebar topics
+    const { TOPIC_TAXONOMY } = await import('../../client/src/data/topics');
+
+    // Get a few sidebar topics
+    const sidebarTopics = TOPIC_TAXONOMY.flatMap(cat => cat.items).slice(0, 3);
+
+    for (const topic of sidebarTopics) {
+      // Verify topic has required fields
+      expect(topic.topic).toBeTruthy();
+      expect(topic.start).toBeTruthy();
+      expect(topic.end).toBeTruthy();
+
+      // Request quiz using the same format as the client would send
+      const quizParams = new URLSearchParams({
+        topic: topic.topic,
+        startYear: topic.start,
+        endYear: topic.end,
+      });
+
+      const quizRes = await fetch(`${API_BASE}/api/quiz?${quizParams}`);
+
+      // Should NOT get "Missing required params" (400 error)
+      expect(quizRes.status).not.toBe(400);
+
+      if (quizRes.status === 200) {
+        const quizData = await quizRes.json() as { questions: unknown[] };
+        expect(Array.isArray(quizData.questions)).toBe(true);
+        expect(quizData.questions.length).toBeGreaterThan(0);
+      } else if (quizRes.status === 404) {
+        // Timeline not cached yet, which is acceptable
+        const errorData = await quizRes.json() as { error?: string };
+        expect(errorData.error).not.toContain('Missing required params');
+      }
+    }
+  }, 30000);
 });
