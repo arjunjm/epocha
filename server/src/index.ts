@@ -149,17 +149,16 @@ app.get('/api/timeline/browse', ah(async (req, res) => {
   }
   const cached = await getCached(topic, startYear, endYear);
   if (cached) {
+    // Await alias before responding — quiz request may arrive immediately after browse
+    // and needs the alias to exist for cache lookups using the AI's topic name.
+    if (cached.topic && cached.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+      await setCached(cached.topic, startYear, endYear, cached);
+    }
     res.json({ cached: true, timeline: cached });
     void logSearchEvent({ topic, cacheHit: true, publicBrowse: true, ts: Date.now() });
     // Backfill embedding if not yet stored (covers Function-pre-generated topics)
     void storeTopicEmbedding(`timeline:${topic.toLowerCase().trim().replace(/\s+/g, '-')}:${startYear}:${endYear}`, topic);
     void enqueueRelatedTopics(cached, startYear, endYear);
-    // Lazy alias: if the AI's topic name differs from the request topic, create a
-    // secondary cache entry under the AI's name. The quiz uses data.topic (the AI name)
-    // for its lookup, so this ensures existing entries work without a full regeneration.
-    if (cached.topic && cached.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
-      void setCached(cached.topic, startYear, endYear, cached);
-    }
   } else {
     // Exact miss — try semantic match before returning 404
     const semantic = await getSemanticallyCached(topic);
