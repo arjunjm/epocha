@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
-import type { QuizQuestion, TimelineData } from '../types';
+import type { QuizQuestion } from '../types';
 
 interface Props {
   topic: string;
   startYear: string;
   endYear: string;
-  timeline?: TimelineData;
   onClose: () => void;
   onComplete: (score: number, total: number, xpEarned: number) => void;
 }
 
 type Phase = 'loading' | 'question' | 'answered' | 'results';
 
-export default function QuizModal({ topic, startYear, endYear, timeline, onClose, onComplete }: Props) {
+export default function QuizModal({ topic, startYear, endYear, onClose, onComplete }: Props) {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState('');
@@ -27,13 +26,7 @@ export default function QuizModal({ topic, startYear, endYear, timeline, onClose
   const fetchQuiz = async () => {
     try {
       const params = new URLSearchParams({ topic, startYear, endYear });
-      const init: RequestInit = { credentials: 'include' };
-      if (timeline) {
-        init.method = 'POST';
-        init.headers = { 'Content-Type': 'application/json' };
-        init.body = JSON.stringify({ topic, startYear, endYear, timeline });
-      }
-      const res = await fetch(`/api/quiz?${params}`, init);
+      const res = await fetch(`/api/quiz?${params}`, { credentials: 'include' });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
         setError(data.error ?? 'Failed to load quiz');
