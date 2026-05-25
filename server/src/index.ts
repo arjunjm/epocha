@@ -281,21 +281,45 @@ app.post('/api/timeline', optAuth, ah(async (req, res) => {
     );
 
     const isIncomplete = timeline.events.length < 5;
-    if (!isIncomplete) {
-      await setCached(topic, startYear, endYear, timeline);
-      if (authReq.user && !publicBrowse) void trackSearch(topic, startYear, endYear);
+
+    // Derive the actual years used for caching: prefer user-specified, fall back to
+    // 4-digit years extracted from the AI's period string. This ensures the cache key
+    // matches what the quiz endpoint will look up (which reads these back from the client).
+    let cacheStart = startYear;
+    let cacheEnd = endYear;
+    if ((!startYear || !endYear) && timeline.period) {
+      const yearMatch = timeline.period.match(/(\d{4})/g);
+      if (yearMatch && yearMatch.length >= 1) {
+        if (!startYear) cacheStart = yearMatch[0]!;
+        if (!endYear) cacheEnd = yearMatch[yearMatch.length - 1]!;
+      }
     }
 
-    send({ type: 'complete', timeline, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
+    if (!isIncomplete) {
+      await setCached(topic, cacheStart, cacheEnd, timeline);
+      // The AI sometimes changes the topic name (e.g. adds "The " prefix). Cache under
+      // both so the quiz — which uses data.topic from the rendered timeline — can find it.
+      if (timeline.topic && timeline.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+        await setCached(timeline.topic, cacheStart, cacheEnd, timeline);
+      }
+      if (authReq.user && !publicBrowse) void trackSearch(topic, cacheStart, cacheEnd);
+    }
+
+    // Include the resolved cache years in the complete event so the client can use them
+    // verbatim for quiz lookups, instead of re-parsing the period string.
+    send({ type: 'complete', timeline, cacheStartYear: cacheStart, cacheEndYear: cacheEnd, ...(isIncomplete && { warning: `Only ${timeline.events.length} events were generated — the response may be incomplete. Try regenerating for a fuller timeline.` }) });
 
     if (authReq.user) void awardXP(authReq.user.id, XP_REWARDS.VIEW_TIMELINE);
     void logSearchEvent({ topic, userId: authReq.user?.id, cacheHit: false, publicBrowse: !!publicBrowse, ts: Date.now() });
 
     // Generate quiz questions in background (don't block response)
-    void generateQuizAndCache(topic, startYear, endYear, timeline);
+    void generateQuizAndCache(topic, cacheStart, cacheEnd, timeline);
+    if (timeline.topic && timeline.topic.trim().toLowerCase() !== topic.trim().toLowerCase()) {
+      void generateQuizAndCache(timeline.topic, cacheStart, cacheEnd, timeline);
+    }
 
     // Pre-warm related topics + next era (full mode only — lite results are transient)
-    if (!isIncomplete && !liteMode) void enqueueRelatedTopics(timeline, startYear, endYear);
+    if (!isIncomplete && !liteMode) void enqueueRelatedTopics(timeline, cacheStart, cacheEnd);
 
   } catch (error) {
     let message = error instanceof Error ? error.message : 'An unknown error occurred';
