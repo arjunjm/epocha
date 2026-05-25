@@ -80,12 +80,24 @@ async function processOne(
     const result = await generateTimeline(job);
 
     if (result) {
-      await redis.setex(key, TIMELINE_TTL, result);
-
       const parsed = JSON.parse(result) as { period?: string };
+
+      // For trending topics without explicit years, extract from the period
+      let finalStartYear = job.startYear;
+      let finalEndYear = job.endYear;
+      if (!job.startYear && !job.endYear && parsed.period) {
+        const yearMatch = parsed.period.match(/(\d{4})/g);
+        if (yearMatch && yearMatch.length >= 1) finalStartYear = yearMatch[0]!;
+        if (yearMatch && yearMatch.length >= 2) finalEndYear = yearMatch[yearMatch.length - 1]!;
+      }
+
+      // Re-create cache key with extracted years (important for trending topics)
+      const finalKey = cacheKey(job.topic, finalStartYear, finalEndYear);
+      await redis.setex(finalKey, TIMELINE_TTL, result);
+
       const meta = JSON.stringify({
-        topic: job.topic, startYear: job.startYear,
-        endYear: job.endYear, period: parsed.period ?? '',
+        topic: job.topic, startYear: finalStartYear,
+        endYear: finalEndYear, period: parsed.period ?? '',
       });
       await redis.zadd('epocha:trending-topics', Date.now(), meta);
       await redis.zremrangebyrank('epocha:trending-topics', 0, -51);
@@ -93,7 +105,7 @@ async function processOne(
       await makePipeline(redis, `Cached: ${job.topic}`);
 
       try {
-        const quizKey = `quiz:${key}`;
+        const quizKey = `quiz:${finalKey}`;
         if (job.forceRegenerate || await redis.ttl(quizKey) <= 86400) {
           if (job.forceRegenerate) await redis.del(quizKey);
           const quiz = await generateQuiz(result);
