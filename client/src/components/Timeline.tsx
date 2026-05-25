@@ -18,6 +18,8 @@ import type { AuthUser } from '../hooks/useAuth';
 
 interface Props {
   data: TimelineData;
+  requestStartYear?: string;
+  requestEndYear?: string;
   onReset: () => void;
   onRelatedSelect?: (topic: string) => void;
   onContinue?: (topic: string, start: string, end: string) => void;
@@ -53,7 +55,7 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, warning, user, onSignIn }: Props) {
+export default function Timeline({ data, requestStartYear, requestEndYear, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, warning, user, onSignIn }: Props) {
   const total = data.events.length;
   const isLiteMode = data.events.some(e => !e.details);
   const [saving, setSaving] = useState(false);
@@ -160,6 +162,10 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
   const topicParts = data.period.split(/\s+(?:to|–)\s+/);
   const startYear = topicParts[0]?.replace(/\D/g, '') || '';
   const endYear = topicParts[1]?.replace(/\D/g, '') || '';
+  // Use original request years (match the cache key) for API calls; fall back to raw period parts.
+  // startYear/endYear above strip BCE/CE and are only used for numeric ops (parseInt, next-era).
+  const cacheStartYear = requestStartYear || topicParts[0]?.trim() || '';
+  const cacheEndYear = requestEndYear || topicParts[1]?.trim() || '';
 
   const nextEraPeriod = (() => {
     const s = parseInt(startYear, 10);
@@ -179,7 +185,7 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: data.topic, startYear, endYear,
+          topic: data.topic, startYear: cacheStartYear, endYear: cacheEndYear,
           title: data.topic,
           description: data.description.slice(0, 200),
           collectionName,
@@ -799,8 +805,8 @@ export default function Timeline({ data, onReset, onRelatedSelect, onContinue, o
       {showQuiz && (
         <QuizModal
           topic={data.topic}
-          startYear={startYear}
-          endYear={endYear}
+          startYear={cacheStartYear}
+          endYear={cacheEndYear}
           onClose={() => setShowQuiz(false)}
           onComplete={handleQuizComplete}
         />

@@ -201,6 +201,82 @@ describe('quiz endpoint', () => {
     const res = await get(`/api/quiz?${params}`);
     expect(res.status).toBeLessThan(500);
   });
+
+  it('BCE/CE year strings are accepted (not rejected with 400)', async () => {
+    // Regression: client was sending digit-only years ("800") instead of the full
+    // BCE/CE format ("800 BCE") that matches the cache key used by the Azure Function.
+    // The server must accept these strings without treating them as malformed input.
+    const params = new URLSearchParams({
+      topic: 'Ancient Greece',
+      startYear: '800 BCE',
+      endYear: '146 BCE',
+    });
+    const res = await get(`/api/quiz?${params}`);
+    expect(res.status).not.toBe(400); // must not be rejected as missing/bad params
+    expect(res.status).toBeLessThan(500);
+  });
+
+  it('pre-cached BCE/CE sidebar topic returns quiz questions with the correct year format', async () => {
+    // The Azure Function pre-generates sidebar topics using the same year strings as
+    // client/src/data/topics.ts and functions/src/topics.ts (e.g. "800 BCE", "476 CE").
+    // The quiz cache key is timeline:<topic>:<startYear>:<endYear>, so the quiz call
+    // MUST use those same full strings — not digit-only versions — or it misses the cache.
+    //
+    // If the timeline IS in cache: quiz must return 200 with exactly 5 valid questions.
+    // If not cached yet (Azure Function hasn't run): we skip rather than fail.
+    const ancientTopics = [
+      { topic: 'Ancient Greece', startYear: '800 BCE', endYear: '146 BCE' },
+      { topic: 'The Roman Empire', startYear: '27 BCE', endYear: '476 CE' },
+      { topic: 'Ancient Egypt', startYear: '3100 BCE', endYear: '30 BCE' },
+    ];
+
+    let verified = 0;
+    for (const t of ancientTopics) {
+      const browseParams = new URLSearchParams(t);
+
+      // Only test quiz if this topic is already in the browse cache
+      const browseRes = await get(`/api/timeline/browse?${browseParams}`);
+      if (browseRes.status !== 200) continue;
+
+      const quizRes = await get(`/api/quiz?${browseParams}`);
+      expect(quizRes.status).toBe(200); // timeline cached → quiz must work
+      const body = await quizRes.json() as { questions: Array<{ question: string; options: string[]; correct: number; explanation: string }> };
+      expect(Array.isArray(body.questions)).toBe(true);
+      expect(body.questions.length).toBe(5);
+      for (const q of body.questions) {
+        expect(typeof q.question).toBe('string');
+        expect(q.question.length).toBeGreaterThan(0);
+        expect(Array.isArray(q.options)).toBe(true);
+        expect(q.options.length).toBe(4);
+        expect(q.correct).toBeGreaterThanOrEqual(0);
+        expect(q.correct).toBeLessThanOrEqual(3);
+        expect(typeof q.explanation).toBe('string');
+      }
+      verified++;
+    }
+
+    if (verified === 0) {
+      // No BCE/CE topics cached — Azure Function hasn't run. This is not a code bug.
+      console.warn('[smoke] No BCE/CE sidebar topics found in cache; skipping quiz assertion');
+    }
+  });
+
+  it('browse and quiz use matching year strings for a modern sidebar topic', async () => {
+    // Modern sidebar topics use plain numeric years (e.g. "1947", "1991").
+    // Verify that the year format used to browse == year format the quiz cache uses.
+    const topic = { topic: 'The Cold War', startYear: '1947', endYear: '1991' };
+    const params = new URLSearchParams(topic);
+
+    const browseRes = await get(`/api/timeline/browse?${params}`);
+    expect(browseRes.status).toBeLessThan(500);
+    if (browseRes.status !== 200) return; // not cached, skip
+
+    const quizRes = await get(`/api/quiz?${params}`);
+    expect(quizRes.status).toBe(200);
+    const body = await quizRes.json() as { questions: unknown[] };
+    expect(Array.isArray(body.questions)).toBe(true);
+    expect(body.questions.length).toBe(5);
+  });
 });
 
 // ── Marketplace ────────────────────────────────────────────────────────────
