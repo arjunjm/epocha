@@ -98,7 +98,7 @@ export async function getTrendingTopics(limit = 20): Promise<TrendingTopic[]> {
     const members = await redis.zrevrange(TRENDING_KEY, 0, limit * 2 - 1); // fetch extra, some may be filtered
     return members
       .map(m => { try { return JSON.parse(m) as TrendingTopic; } catch { return null; } })
-      .filter((t): t is TrendingTopic => !!t && !!t.topic && !!t.startYear && !!t.endYear && !DEFAULT_TOPICS.has(t.topic))
+      .filter((t): t is TrendingTopic => !!t && !!t.topic && !DEFAULT_TOPICS.has(t.topic))
       .slice(0, limit);
   } catch { return []; }
 }
