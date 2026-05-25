@@ -97,8 +97,22 @@ export async function getTrendingTopics(limit = 20): Promise<TrendingTopic[]> {
   try {
     const members = await redis.zrevrange(TRENDING_KEY, 0, limit * 2 - 1); // fetch extra, some may be filtered
     return members
-      .map(m => { try { return JSON.parse(m) as TrendingTopic; } catch { return null; } })
-      .filter((t): t is TrendingTopic => !!t && !!t.topic && !DEFAULT_TOPICS.has(t.topic))
+      .map(m => {
+        try {
+          const t = JSON.parse(m) as TrendingTopic;
+          // Old entries (before year-extraction was added) have empty startYear/endYear.
+          // Extract 4-digit years from the period string using the same logic as the Function.
+          if (t && (!t.startYear || !t.endYear) && t.period) {
+            const yearMatch = t.period.match(/(\d{4})/g);
+            if (yearMatch && yearMatch.length >= 1) {
+              if (!t.startYear) t.startYear = yearMatch[0]!;
+              if (!t.endYear) t.endYear = yearMatch[yearMatch.length - 1]!;
+            }
+          }
+          return t;
+        } catch { return null; }
+      })
+      .filter((t): t is TrendingTopic => !!t && !!t.topic && !!t.startYear && !!t.endYear && !DEFAULT_TOPICS.has(t.topic))
       .slice(0, limit);
   } catch { return []; }
 }

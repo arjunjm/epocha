@@ -184,6 +184,9 @@ describe('trending topics', () => {
       expect(typeof item.startYear).toBe('string');
       expect(typeof item.endYear).toBe('string');
       expect(typeof item.period).toBe('string');
+      // Years must be non-empty — empty years prevent browse/quiz lookups from working
+      expect((item.startYear as string).length).toBeGreaterThan(0);
+      expect((item.endYear as string).length).toBeGreaterThan(0);
     }
   });
 });
