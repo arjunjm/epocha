@@ -87,8 +87,16 @@ async function processOne(
       let finalEndYear = job.endYear;
       if (!job.startYear && !job.endYear && parsed.period) {
         const yearMatch = parsed.period.match(/(\d{4})/g);
-        if (yearMatch && yearMatch.length >= 1) finalStartYear = yearMatch[0]!;
-        if (yearMatch && yearMatch.length >= 2) finalEndYear = yearMatch[yearMatch.length - 1]!;
+        if (yearMatch && yearMatch.length >= 1) {
+          finalStartYear = yearMatch[0]!;
+          // Use the last year found, or fallback to the first year if only one was found
+          finalEndYear = yearMatch.length >= 2 ? yearMatch[yearMatch.length - 1]! : yearMatch[0]!;
+        } else {
+          // No years found in period — fallback to reasonable defaults
+          // This prevents empty years which would fail validation
+          finalStartYear = new Date().getFullYear().toString();
+          finalEndYear = finalStartYear;
+        }
       }
 
       // Re-create cache key with extracted years (important for trending topics)
