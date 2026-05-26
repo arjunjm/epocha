@@ -51,8 +51,22 @@ export async function getCached(
   const key = cacheKey(topic, startYear, endYear);
   try {
     const raw = redis ? await redis.get(key) : memoryCache.get(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as TimelineData;
+    if (raw) return JSON.parse(raw) as TimelineData;
+
+    // Fallback: old entries were stored with empty years before year-extraction was added.
+    // getTrendingTopics() now returns extracted years, so the client requests with those
+    // years but the data lives at the empty-year key. Migrate lazily on first hit.
+    if ((startYear || endYear) && redis) {
+      const emptyKey = cacheKey(topic, '', '');
+      if (emptyKey !== key) {
+        const emptyRaw = await redis.get(emptyKey);
+        if (emptyRaw) {
+          void redis.setex(key, TTL_SECONDS, emptyRaw); // migrate to year-keyed entry
+          return JSON.parse(emptyRaw) as TimelineData;
+        }
+      }
+    }
+    return null;
   } catch {
     return null;
   }
@@ -159,8 +173,20 @@ export async function getCachedQuiz(
   const key = `quiz:${cacheKey(topic, startYear, endYear)}`;
   try {
     const raw = redis ? await redis.get(key) : memoryCache.get(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as QuizQuestion[];
+    if (raw) return JSON.parse(raw) as QuizQuestion[];
+
+    // Fallback: quiz for old entries was stored under empty-year key — migrate lazily.
+    if ((startYear || endYear) && redis) {
+      const emptyKey = `quiz:${cacheKey(topic, '', '')}`;
+      if (emptyKey !== key) {
+        const emptyRaw = await redis.get(emptyKey);
+        if (emptyRaw) {
+          void redis.setex(key, TTL_SECONDS, emptyRaw); // migrate to year-keyed entry
+          return JSON.parse(emptyRaw) as QuizQuestion[];
+        }
+      }
+    }
+    return null;
   } catch { return null; }
 }
 
