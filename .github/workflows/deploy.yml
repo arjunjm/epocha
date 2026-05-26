@@ -315,13 +315,6 @@ jobs:
             --overwrite
           echo "Marked run ${{ github.run_id }} (sha ${{ github.sha }}) as stable"
 
-  # ── Refresh GitHub Pages landing page after a successful deploy ───────────
-
-  update-pages:
-    name: Update GitHub Pages
-    needs: mark-stable
-    uses: ./.github/workflows/pages.yml
-
   # ── Rollback to last-known-good if smoke threshold exceeded ──────────────
 
   rollback:

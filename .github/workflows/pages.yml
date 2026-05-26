@@ -5,7 +5,11 @@ on:
     branches: [main, master]
     paths:
       - 'docs/**'
-  workflow_call:  # triggered by deploy.yml after a successful smoke run
+  # Auto-refresh after every successful production deploy
+  workflow_run:
+    workflows: ["Build and Deploy — Epocha"]
+    types: [completed]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +25,10 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
+    # For workflow_run trigger: only run when the deploy succeeded
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
