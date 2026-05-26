@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import TimelineForm from './components/TimelineForm';
 import Timeline from './components/Timeline';
+import CompareView from './components/CompareView';
 import Sidebar from './components/Sidebar';
 import AuthButton from './components/AuthButton';
 import ProfileBadge from './components/ProfileBadge';
@@ -65,6 +66,11 @@ export default function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const lastAttemptRef = useRef<(() => void) | null>(null);
   const [timelineYears, setTimelineYears] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareTimeline, setCompareTimeline] = useState<TimelineData | null>(null);
+  const [compareYears, setCompareYears] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  const [compareStatus, setCompareStatus] = useState<AppStatus>({ loading: false });
+  const [showCompareForm, setShowCompareForm] = useState(false);
   const scrollProgress = useScrollProgress(!!(timeline && !status.loading && page === 'home'));
 
   // Tick elapsed timer while a generation is in progress (Feature 9)
@@ -316,8 +322,67 @@ export default function App() {
     setActiveTopic(undefined);
     setStatus({ loading: false });
     setGenerationStartTime(null);
+    setCompareMode(false);
+    setCompareTimeline(null);
+    setShowCompareForm(false);
     clearSession();
     window.history.replaceState(null, '', '/');
+  };
+
+  // Load the second timeline for compare mode — always uses public browse path
+  const handleCompareBrowse = async (topic: string, startYear: string, endYear: string) => {
+    setCompareStatus({ loading: true, message: `Looking up "${topic}"…` });
+    setCompareTimeline(null);
+    setShowCompareForm(false);
+    try {
+      const params = new URLSearchParams({ topic, startYear, endYear });
+      const res = await fetch(`/api/timeline/browse?${params}`);
+      if (res.ok) {
+        const data = await res.json() as { cached: boolean; timeline: TimelineData };
+        setCompareTimeline(data.timeline);
+        setCompareYears({ start: startYear, end: endYear });
+        setCompareStatus({ loading: false });
+        setCompareMode(true);
+        return;
+      }
+      // Not cached — stream it publicly
+      setCompareStatus({ loading: true, message: `Generating "${topic}"…` });
+      const streamRes = await fetch('/api/timeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, startYear, endYear, publicBrowse: true }),
+      });
+      if (!streamRes.ok || !streamRes.body) {
+        throw new Error(`Could not load "${topic}"`);
+      }
+      const reader = streamRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let completed = false;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6)) as { type: string; timeline?: TimelineData; cacheStartYear?: string; cacheEndYear?: string };
+            if (data.type === 'complete' && data.timeline) {
+              completed = true;
+              setCompareTimeline(data.timeline);
+              setCompareYears({ start: data.cacheStartYear ?? startYear, end: data.cacheEndYear ?? endYear });
+              setCompareStatus({ loading: false });
+              setCompareMode(true);
+            }
+          } catch { /* partial */ }
+        }
+      }
+      if (!completed) throw new Error('Stream closed before compare timeline finished.');
+    } catch (err) {
+      setCompareStatus({ loading: false, error: err instanceof Error ? err.message : 'Failed to load timeline' });
+    }
   };
 
   // Related topics: authenticated path so cache misses count against daily limit
@@ -654,8 +719,61 @@ export default function App() {
               </div>
             )}
 
-            {/* Timeline */}
-            {timeline && !isLoading && (
+            {/* Compare view — full split layout when both timelines loaded */}
+            {compareMode && timeline && compareTimeline && !isLoading && (
+              <div className="px-5 pb-24">
+                <CompareView
+                  left={timeline}
+                  leftYears={timelineYears}
+                  right={compareTimeline}
+                  rightYears={compareYears}
+                  onExit={() => { setCompareMode(false); setCompareTimeline(null); setShowCompareForm(false); }}
+                />
+              </div>
+            )}
+
+            {/* Compare loading state */}
+            {compareStatus.loading && !compareMode && timeline && !isLoading && (
+              <div className="max-w-4xl mx-auto px-5 pb-6">
+                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-5 py-4 flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-full border-2 border-t-cyan-400 border-r-cyan-400/50 border-b-transparent border-l-transparent animate-spin shrink-0" />
+                  <p className="text-sm text-cyan-300">{compareStatus.message}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Compare error state */}
+            {!compareStatus.loading && 'error' in compareStatus && compareStatus.error && (
+              <div className="max-w-4xl mx-auto px-5 pb-6">
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-3 flex items-center justify-between gap-3">
+                  <p className="text-sm text-red-300">{compareStatus.error}</p>
+                  <button onClick={() => setCompareStatus({ loading: false })} className="text-slate-600 hover:text-slate-400 text-xs">dismiss</button>
+                </div>
+              </div>
+            )}
+
+            {/* Compare topic picker — shown when user clicks Compare but hasn't picked a topic yet */}
+            {showCompareForm && timeline && !isLoading && !compareMode && (
+              <div className="max-w-4xl mx-auto px-5 pb-6 fade-up">
+                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm font-semibold text-cyan-300">Compare with another timeline</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Enter a topic to compare side-by-side with <span className="text-white">{timeline.topic}</span></p>
+                    </div>
+                    <button onClick={() => setShowCompareForm(false)} className="text-slate-600 hover:text-slate-400 text-sm">×</button>
+                  </div>
+                  <TimelineForm
+                    compact
+                    onSubmit={(topic, start, end) => void handleCompareBrowse(topic, start, end)}
+                    submitLabel="Compare →"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Timeline — hidden when compare mode is active */}
+            {timeline && !isLoading && !compareMode && (
               <div className="max-w-4xl mx-auto px-5 pb-24">
                 {sessionRestored && (
                   <div className="mb-0 pt-4 fade-up flex justify-center">
@@ -674,6 +792,7 @@ export default function App() {
                   onRegenerateSkipCache={user?.isAdmin ? () => void handleGenerate(timeline.topic, timelineYears.start, timelineYears.end, true) : undefined}
                   onUpgradeLite={user && timeline.events.some(e => !e.details) ? () => void handleGenerate(timeline.topic, timelineYears.start, timelineYears.end, true) : undefined}
                   onSaved={() => setCollectionsRefreshKey(k => k + 1)}
+                  onCompare={() => setShowCompareForm(f => !f)}
                   warning={timelineWarning}
                   user={user}
                   onSignIn={signIn}

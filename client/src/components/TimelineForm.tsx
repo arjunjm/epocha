@@ -5,9 +5,11 @@ interface Props {
   onSubmit: (topic: string, startYear: string, endYear: string, liteMode: boolean) => void;
   remaining?: number;
   dailyLimit?: number;
+  compact?: boolean;
+  submitLabel?: string;
 }
 
-export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props) {
+export default function TimelineForm({ onSubmit, remaining, dailyLimit, compact, submitLabel }: Props) {
   const [topic, setTopic] = useState('');
   const [startYear, setStartYear] = useState('');
   const [endYear, setEndYear] = useState('');
@@ -25,7 +27,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
   const isOut = remaining === 0;
 
   return (
-    <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 sm:p-8">
+    <form onSubmit={handleSubmit} className={`glass rounded-2xl ${compact ? 'p-4' : 'p-6 sm:p-8'}`}>
       <div className="mb-5">
         <label htmlFor="topic" className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
           Topic
@@ -48,7 +50,7 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
         </datalist>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className={`grid grid-cols-2 gap-4 ${compact ? 'mb-4' : 'mb-6'}`}>
         <div>
           <label htmlFor="startYear" className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
             From <span className="text-slate-600 normal-case font-normal tracking-normal">optional</span>
@@ -77,37 +79,39 @@ export default function TimelineForm({ onSubmit, remaining, dailyLimit }: Props)
         </div>
       </div>
 
-      {/* Lite mode toggle */}
-      <label className="flex items-center justify-between mb-4 cursor-pointer select-none group">
-        <div>
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Full details</span>
-          <p className="text-[11px] text-slate-600 mt-0.5">
-            {liteMode ? 'Summaries only — ~2× faster' : 'Full paragraphs per event — slower'}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={!liteMode}
-          onClick={() => setLiteMode(m => !m)}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-            !liteMode ? 'bg-amber-500' : 'bg-white/10'
-          }`}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-              !liteMode ? 'translate-x-4.5' : 'translate-x-0.5'
+      {/* Lite mode toggle — hidden in compact mode */}
+      {!compact && (
+        <label className="flex items-center justify-between mb-4 cursor-pointer select-none group">
+          <div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Full details</span>
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              {liteMode ? 'Summaries only — ~2× faster' : 'Full paragraphs per event — slower'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!liteMode}
+            onClick={() => setLiteMode(m => !m)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+              !liteMode ? 'bg-amber-500' : 'bg-white/10'
             }`}
-          />
-        </button>
-      </label>
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                !liteMode ? 'translate-x-4.5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </label>
+      )}
 
       <button
         type="submit"
         disabled={isOut}
         className="w-full py-4 rounded-xl font-semibold text-sm tracking-wide text-black bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 active:scale-[0.98] transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {isOut ? 'Daily limit reached' : liteMode ? 'Quick explore →' : 'Explore (full details) →'}
+        {submitLabel ?? (isOut ? 'Daily limit reached' : liteMode ? 'Quick explore →' : 'Explore (full details) →')}
       </button>
 
       {/* Daily usage bar */}

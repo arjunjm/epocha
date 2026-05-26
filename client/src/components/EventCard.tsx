@@ -256,6 +256,25 @@ export default function EventCard({ event, gradient, align, defaultExpanded = fa
             </div>
           )}
 
+          {/* Source citation */}
+          {event.source && (
+            <div className="mt-4 border-t border-white/5 pt-3 flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Source</span>
+              <a
+                href={event.source}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1 text-xs text-slate-500 hover:text-amber-400 transition-colors truncate"
+              >
+                <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Wikipedia
+              </a>
+            </div>
+          )}
+
           {/* Copy button */}
           <div className="flex justify-end pt-1">
             <button

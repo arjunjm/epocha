@@ -26,6 +26,7 @@ interface Props {
   onRegenerateSkipCache?: () => void;
   onUpgradeLite?: () => void;
   onSaved?: () => void;
+  onCompare?: () => void;
   warning?: string;
   user?: AuthUser | null;
   onSignIn?: () => void;
@@ -55,7 +56,7 @@ function getGradient(index: number, total: number) {
   };
 }
 
-export default function Timeline({ data, requestStartYear, requestEndYear, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, warning, user, onSignIn }: Props) {
+export default function Timeline({ data, requestStartYear, requestEndYear, onReset, onRelatedSelect, onContinue, onRegenerateSkipCache, onUpgradeLite, onSaved, onCompare, warning, user, onSignIn }: Props) {
   const total = data.events.length;
   const isLiteMode = data.events.some(e => !e.details);
   const [saving, setSaving] = useState(false);
@@ -427,6 +428,14 @@ export default function Timeline({ data, requestStartYear, requestEndYear, onRes
             >
               🔗 Share
             </button>
+            {onCompare && (
+              <button
+                onClick={onCompare}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold text-cyan-300 border border-cyan-400/30 bg-cyan-400/5 hover:bg-cyan-400/10 transition-colors"
+              >
+                ⟺ Compare
+              </button>
+            )}
             <button
               onClick={onReset}
               className="px-4 py-1.5 rounded-full text-xs font-semibold text-slate-400 border border-white/10 hover:border-white/20 hover:text-white transition-colors"

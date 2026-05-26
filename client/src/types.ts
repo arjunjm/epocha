@@ -8,6 +8,7 @@ export interface TimelineEvent {
   figures?: string[];
   location?: string;
   tags?: string[];
+  source?: string;
 }
 
 export interface TimelineData {
