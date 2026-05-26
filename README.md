@@ -2,7 +2,9 @@
 
 An AI-powered historical timeline generator. Enter any topic and time period and get a rich, structured timeline — events, key figures, significance, and quiz questions — streamed in real time and cached for instant repeat access.
 
-**Live:** https://epochas.app · **Landing page:** https://arjunjm.github.io/epocha/
+**Live:** https://epochas.app
+
+**Landing page:** https://arjunjm.github.io/epocha/
 
 ![Epocha home screen](screenshots/home.png)
 
