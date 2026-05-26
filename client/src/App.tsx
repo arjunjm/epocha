@@ -767,6 +767,8 @@ export default function App() {
                     compact
                     onSubmit={(topic, start, end) => void handleCompareBrowse(topic, start, end)}
                     submitLabel="Compare →"
+                    defaultStartYear={timelineYears.start}
+                    defaultEndYear={timelineYears.end}
                   />
                 </div>
               </div>

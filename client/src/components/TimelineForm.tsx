@@ -7,12 +7,14 @@ interface Props {
   dailyLimit?: number;
   compact?: boolean;
   submitLabel?: string;
+  defaultStartYear?: string;
+  defaultEndYear?: string;
 }
 
-export default function TimelineForm({ onSubmit, remaining, dailyLimit, compact, submitLabel }: Props) {
+export default function TimelineForm({ onSubmit, remaining, dailyLimit, compact, submitLabel, defaultStartYear = '', defaultEndYear = '' }: Props) {
   const [topic, setTopic] = useState('');
-  const [startYear, setStartYear] = useState('');
-  const [endYear, setEndYear] = useState('');
+  const [startYear, setStartYear] = useState(defaultStartYear);
+  const [endYear, setEndYear] = useState(defaultEndYear);
   const [liteMode, setLiteMode] = useState(true);
 
   const handleSubmit = (e: FormEvent) => {
