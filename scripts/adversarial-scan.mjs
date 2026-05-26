@@ -12,6 +12,8 @@ if (!repo) throw new Error('GITHUB_REPOSITORY is required');
 const apiBase = `https://api.github.com/repos/${repo}`;
 const repoRoot = process.cwd();
 const interestingExts = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.md', '.yml', '.yaml']);
+const autoFixWorkflow = 'auto-fix-issues.yml';
+const humanReviewLabels = new Set(['security', 'auth', 'needs-human']);
 
 const rules = [
   {
@@ -43,6 +45,18 @@ const ignoredPrefixes = [
 
 function sha(value) {
   return crypto.createHash('sha1').update(value).digest('hex').slice(0, 12);
+}
+
+function currentRef() {
+  if (process.env.GITHUB_REF_NAME) return process.env.GITHUB_REF_NAME;
+  return (process.env.GITHUB_REF ?? '')
+    .replace(/^refs\/heads\//, '')
+    .replace(/^refs\/tags\//, '') || 'master';
+}
+
+function shouldDispatchAutoFix(finding) {
+  const labels = finding.rule.labels;
+  return labels.includes('auto-fix-candidate') && !labels.some(label => humanReviewLabels.has(label));
 }
 
 function isTextFile(file) {
@@ -165,6 +179,20 @@ async function upsertIssue(finding) {
   return { action: 'created', number: issue.number, title };
 }
 
+async function dispatchAutoFix(issueNumber) {
+  await gh('POST', `/actions/workflows/${autoFixWorkflow}/dispatches`, {
+    ref: currentRef(),
+    inputs: { issue_number: String(issueNumber) },
+  });
+}
+
+async function hasOpenAutoFixPullRequest(issueNumber) {
+  const [owner] = repo.split('/');
+  const head = encodeURIComponent(`${owner}:auto-fix/issue-${issueNumber}`);
+  const pulls = await gh('GET', `/pulls?state=open&head=${head}`);
+  return pulls.length > 0;
+}
+
 async function main() {
   await ensureLabels();
   const files = await getTrackedFiles();
@@ -186,7 +214,16 @@ async function main() {
       `${finding.rule.id}|${finding.file}|${finding.matches.map(m => `${m.line}:${m.excerpt}`).join('|')}`
     );
     fingerprints.add(fingerprint);
-    results.push(await upsertIssue(finding));
+    const result = await upsertIssue(finding);
+    if (shouldDispatchAutoFix(finding)) {
+      if (await hasOpenAutoFixPullRequest(result.number)) {
+        result.autoFix = 'open-pr-exists';
+      } else {
+        await dispatchAutoFix(result.number);
+        result.autoFix = 'dispatched';
+      }
+    }
+    results.push(result);
   }
 
   const triageIssues = await gh('GET', '/issues?state=open&per_page=100&labels=triage');

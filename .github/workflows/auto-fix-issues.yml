@@ -3,6 +3,12 @@ name: Auto-fix labeled issues
 on:
   issues:
     types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to auto-fix'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -10,7 +16,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: auto-fix-${{ github.event.issue.number || github.run_id }}
+  group: auto-fix-${{ github.event.inputs.issue_number || github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -18,7 +24,7 @@ jobs:
     name: Fix eligible issue
     runs-on: ubuntu-latest
 
-    if: contains(github.event.issue.labels.*.name, 'auto-fix-candidate')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'auto-fix-candidate')
 
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +34,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Resolve issue number
+        id: issue
+        run: echo "number=${{ github.event.inputs.issue_number || github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+
       - name: Auto-label scan issues
-        if: "contains(github.event.issue.body, 'epocha-scan-fingerprint')"
+        if: "github.event_name != 'workflow_dispatch' && contains(github.event.issue.body, 'epocha-scan-fingerprint')"
         uses: actions/github-script@v7
         with:
           script: |
@@ -48,11 +58,12 @@ jobs:
       - name: Detect security labels
         id: gate
         env:
-          ISSUE_LABELS: ${{ toJson(github.event.issue.labels) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if echo "$ISSUE_LABELS" | grep -Eq '"(security|auth|needs-human)"'; then
+          LABELS=$(gh api repos/${{ github.repository }}/issues/${{ steps.issue.outputs.number }}/labels \
+            --jq '[.[].name] | join(",")' 2>/dev/null || echo "")
+          if echo "$LABELS" | grep -Eq '(security|auth|needs-human)'; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "reason=security-sensitive" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -65,7 +76,7 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.issue.number,
+              issue_number: ${{ steps.issue.outputs.number }},
               body: 'Skipping auto-fix: the issue is labeled security/auth-sensitive and requires human review.'
             });
 
@@ -74,7 +85,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: node scripts/auto-fix-issue.mjs "${{ github.event.issue.number }}"
+        run: node scripts/auto-fix-issue.mjs "${{ steps.issue.outputs.number }}"
 
       - name: Check for changes
         if: steps.gate.outputs.skip != 'true'
@@ -91,11 +102,11 @@ jobs:
         id: create-pull-request
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: auto-fix/issue-${{ github.event.issue.number }}
-          title: "Auto-fix for issue #${{ github.event.issue.number }}"
-          commit-message: "Auto-fix issue #${{ github.event.issue.number }}"
+          branch: auto-fix/issue-${{ steps.issue.outputs.number }}
+          title: "Auto-fix for issue #${{ steps.issue.outputs.number }}"
+          commit-message: "Auto-fix issue #${{ steps.issue.outputs.number }}"
           body: |
-            This PR was created automatically from issue #${{ github.event.issue.number }}.
+            This PR was created automatically from issue #${{ steps.issue.outputs.number }}.
 
             The workflow only acts on `auto-fix-candidate` issues and skips anything labeled `security`, `auth`, or `needs-human`.
           labels: auto-fix-candidate
@@ -108,6 +119,6 @@ jobs:
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.issue.number,
+              issue_number: ${{ steps.issue.outputs.number }},
               body: `Auto-fix PR opened: ${{ steps.create-pull-request.outputs.pull-request-url }}`
             });
