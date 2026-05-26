@@ -132,6 +132,8 @@
 - [x] Nav pill grouping — desktop nav buttons (Discover, Paths, Stats, Library, Shop) grouped in a shared pill container with amber active state and subtle hover highlighting
 - [x] Quiz button fixed for all period formats — button now shown using SSE cacheStartYear/cacheEndYear instead of period-split years (fixes topics with "to" separator like "1980 CE to Present")
 - [x] Landing page — light-mode static HTML/CSS page at docs/index.html; published to GitHub Pages (https://arjunjm.github.io/epocha/); auto-updates after every successful production deploy via workflow_run hook
+- [x] Parallel timeline compare mode — "⟺ Compare" button on any loaded timeline opens a compact form to pick a second topic; fetches it via public browse or SSE; renders a split-view (desktop two-column grid, mobile tab switcher) with a shared time axis bar showing both timeline spans and any temporal overlap; each column has a scrollable expandable event list
+- [x] Source citations — every event card shows a "Wikipedia" link (source field) in the expanded view; Claude is prompted to return a specific Wikipedia URL per event; shown in both main EventCard and CompareView EventRow
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)

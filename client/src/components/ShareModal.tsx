@@ -119,7 +119,7 @@ export default function ShareModal({ topic, period, firstDate, lastDate, eventCo
 
         <p className="mt-4 text-center text-slate-700 text-[10px]">
           Generated on <span className="text-slate-600">Epocha</span> · free to explore at{' '}
-          <span className="text-amber-600/70">epocha.app</span>
+          <span className="text-amber-600/70">epochas.app</span>
         </p>
       </div>
     </div>

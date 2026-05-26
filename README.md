@@ -54,6 +54,10 @@ An AI-powered historical timeline generator. Enter any topic and time period and
 - **Shareable URLs** — topic/start/end encoded in query params with dynamic OG meta tags
 - **Export** — PDF (print), Markdown, self-contained HTML
 
+### Compare & citations
+- **Parallel compare mode** — "⟺ Compare" button loads a second timeline side-by-side with a shared time axis; desktop two-column split, mobile tab switcher; overlap period highlighted in the axis bar
+- **Source citations** — each event card links to its Wikipedia article (Claude returns a specific URL per event); shown in expanded event view
+
 ### UX
 - **Welcome modal** — first-visit intro for new users
 - **Generation timer** — elapsed time and estimated remaining shown during streaming

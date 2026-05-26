@@ -114,7 +114,8 @@ Return ONLY a valid JSON object — no markdown, no code blocks, no preamble. Us
       "significance": "Why this event was historically significant — its lasting impact",
       "figures": ["Key Person 1", "Key Person 2"],
       "location": "Geographic location",
-      "tags": ["thematic-tag-1", "thematic-tag-2"]
+      "tags": ["thematic-tag-1", "thematic-tag-2"],
+      "source": "https://en.wikipedia.org/wiki/Event_Title"
     }
   ],
   "relatedTopics": ["Related Topic 1", "Related Topic 2", "Related Topic 3", "Related Topic 4", "Related Topic 5"]
@@ -126,6 +127,7 @@ Rules:
 - Details should be 2-3 focused paragraphs of educational content
 - Tags should use kebab-case and be thematic (e.g., "philosophy", "political-change", "scientific-discovery")
 - relatedTopics: 4-5 topics closely related to this one that a learner might explore next
+- source: a real Wikipedia URL for the event's primary subject (use the most specific article, e.g. https://en.wikipedia.org/wiki/Battle_of_Marathon not a general history article)
 - Always return ONLY the JSON object`;
 
 // ── Timeline routes ────────────────────────────────────────────────────────

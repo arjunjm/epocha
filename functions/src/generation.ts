@@ -68,7 +68,8 @@ Return ONLY a valid JSON object — no markdown, no code blocks, no preamble. Us
       "significance": "Why this event was historically significant — its lasting impact",
       "figures": ["Key Person 1", "Key Person 2"],
       "location": "Geographic location",
-      "tags": ["thematic-tag-1", "thematic-tag-2"]
+      "tags": ["thematic-tag-1", "thematic-tag-2"],
+      "source": "https://en.wikipedia.org/wiki/Event_Title"
     }
   ],
   "relatedTopics": ["Related Topic 1", "Related Topic 2", "Related Topic 3"]
@@ -79,6 +80,7 @@ Rules:
 - sortYear must be a number: negative for BCE, positive for CE
 - Details should be substantive, 3-5 paragraphs of educational content
 - Tags should use kebab-case and be thematic
+- source: a real Wikipedia URL for the event's primary subject (use the most specific article available)
 - Always return ONLY the JSON object`;
 
 const QUIZ_PROMPT = `You are creating a multiple-choice quiz about a historical timeline.
