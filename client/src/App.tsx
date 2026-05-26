@@ -367,7 +367,7 @@ export default function App() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {(timeline || isLoading) && page === 'home' && (
               <button
                 onClick={handleReset}
@@ -378,41 +378,32 @@ export default function App() {
               </button>
             )}
 
-            {/* Nav links — Discover and Paths are public; others require login */}
-            <button
-              onClick={() => { setPage('discover'); setTimeline(null); setStatus({ loading: false }); }}
-              className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'discover' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
-            >
-              Discover
-            </button>
-            <button
-              onClick={() => { setPage('paths'); setTimeline(null); setStatus({ loading: false }); }}
-              className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'paths' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
-            >
-              Paths
-            </button>
-            {user && (
-              <>
+            {/* Nav links — grouped with a pill-style container on desktop */}
+            <nav className="hidden sm:flex items-center gap-0.5 bg-white/5 rounded-xl px-1 py-1 border border-white/5">
+              {(
+                [
+                  { id: 'discover', label: 'Discover' },
+                  { id: 'paths',    label: 'Paths'    },
+                  ...(user ? [
+                    { id: 'stats',       label: 'Stats'   },
+                    { id: 'saved',       label: 'Library' },
+                    { id: 'marketplace', label: 'Shop'    },
+                  ] : []),
+                ] as { id: AppPage; label: string }[]
+              ).map(({ id, label }) => (
                 <button
-                  onClick={() => { setPage('stats'); setTimeline(null); setStatus({ loading: false }); }}
-                  className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'stats' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+                  key={id}
+                  onClick={() => { setPage(id); setTimeline(null); setStatus({ loading: false }); }}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    page === id
+                      ? 'text-amber-300 bg-amber-500/15 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-white/8'
+                  }`}
                 >
-                  Stats
+                  {label}
                 </button>
-                <button
-                  onClick={() => { setPage('saved'); setTimeline(null); setStatus({ loading: false }); }}
-                  className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'saved' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
-                >
-                  Library
-                </button>
-                <button
-                  onClick={() => { setPage('marketplace'); setTimeline(null); setStatus({ loading: false }); }}
-                  className={`hidden sm:block text-xs px-2.5 py-1 rounded-lg transition-colors ${page === 'marketplace' ? 'text-amber-300 bg-amber-500/10' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
-                >
-                  Shop
-                </button>
-              </>
-            )}
+              ))}
+            </nav>
 
             {/* Light / dark toggle */}
             <button
