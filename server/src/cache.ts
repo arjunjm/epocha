@@ -167,13 +167,27 @@ export async function getPopularTopics(limit = 30): Promise<Array<{ topic: strin
   } catch { return []; }
 }
 
+function isValidQuizData(data: unknown): data is QuizQuestion[] {
+  if (!Array.isArray(data) || data.length === 0) return false;
+  const first = data[0] as Record<string, unknown>;
+  return typeof first === 'object' && first !== null &&
+    typeof first['question'] === 'string' &&
+    Array.isArray(first['options']);
+}
+
 export async function getCachedQuiz(
   topic: string, startYear: string, endYear: string
 ): Promise<QuizQuestion[] | null> {
   const key = `quiz:${cacheKey(topic, startYear, endYear)}`;
   try {
     const raw = redis ? await redis.get(key) : memoryCache.get(key);
-    if (raw) return JSON.parse(raw) as QuizQuestion[];
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (isValidQuizData(parsed)) return parsed;
+      // Corrupt entry — delete so the quiz endpoint regenerates it cleanly.
+      console.warn(`[cache] Corrupt quiz data at ${key}, deleting`);
+      void (redis ? redis.del(key) : memoryCache.delete(key));
+    }
 
     // Fallback: quiz for old entries was stored under empty-year key — migrate lazily.
     if ((startYear || endYear) && redis) {
@@ -181,8 +195,13 @@ export async function getCachedQuiz(
       if (emptyKey !== key) {
         const emptyRaw = await redis.get(emptyKey);
         if (emptyRaw) {
-          void redis.setex(key, TTL_SECONDS, emptyRaw); // migrate to year-keyed entry
-          return JSON.parse(emptyRaw) as QuizQuestion[];
+          const emptyParsed = JSON.parse(emptyRaw) as unknown;
+          if (isValidQuizData(emptyParsed)) {
+            void redis.setex(key, TTL_SECONDS, emptyRaw); // migrate only if valid
+            return emptyParsed;
+          }
+          // Corrupt empty-year quiz too — don't migrate garbage data
+          console.warn(`[cache] Corrupt quiz data at empty-year key ${emptyKey}, skipping migration`);
         }
       }
     }
