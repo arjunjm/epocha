@@ -395,7 +395,7 @@ export default function Timeline({ data, requestStartYear, requestEndYear, onRes
             <span className="px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-400/30 bg-amber-400/5">
               {total} events
             </span>
-            {startYear && endYear && (
+            {cacheStartYear && cacheEndYear && (
               <button
                 onClick={() => setShowQuiz(true)}
                 disabled={isLiteMode}
