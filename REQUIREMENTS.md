@@ -129,6 +129,9 @@
 - [x] Related Events — expanded event cards show up to 3 related events from the same timeline (matched by shared tags × 2 + shared figures × 3 score); click any to smooth-scroll to it; only shown when there are actual matches
 - [x] Smart Topic Suggestions — sidebar shows "You might like" section after 2+ timelines viewed; picks unvisited topics from categories matching viewing history (most-viewed categories ranked first); appears between Recent and the main taxonomy
 - [x] Timeline Completion Badges — reading all events in a timeline triggers "🎓 Topic completed!" toast and saves it to localStorage; completed timelines shown in Profile modal under "🎓 Completed · N" with topic, period, and ✓ indicators
+- [x] Nav pill grouping — desktop nav buttons (Discover, Paths, Stats, Library, Shop) grouped in a shared pill container with amber active state and subtle hover highlighting
+- [x] Quiz button fixed for all period formats — button now shown using SSE cacheStartYear/cacheEndYear instead of period-split years (fixes topics with "to" separator like "1980 CE to Present")
+- [x] Landing page — light-mode static HTML/CSS page at docs/index.html; published to GitHub Pages (https://arjunjm.github.io/epocha/); auto-updates after every successful production deploy via workflow_run hook
 
 ## Infrastructure & Deployment
 - [x] GitHub Actions CI/CD pipeline — build on Linux, deploy App Service + Function App on push to master (.github/workflows/deploy.yml)
@@ -136,6 +139,7 @@
 - [x] Full CI/CD pipeline: build → deploy on merge to master
 - [x] Bicep file for all Azure resource provisioning (infra/main.bicep — Key Vault, App Service B1, Cosmos DB serverless, Redis C0, Function App consumption plan)
 - [x] Function App deployment via run-from-package blob upload (bypasses Kudu 503 on Linux Consumption Plan)
+- [x] GitHub Pages (.github/workflows/pages.yml) — deploys docs/ to https://arjunjm.github.io/epocha/; triggers on docs/ changes and after every successful production deploy (workflow_run hook)
 
 ---
 

@@ -235,6 +235,7 @@ Deployments trigger automatically on push to `master` via GitHub Actions:
 4. **Deploy Functions** — zip `dist/` + `node_modules/` → blob storage → `WEBSITE_RUN_FROM_PACKAGE`
 5. **Smoke tests** — run against live app after deploy; auto-rollback if >20% fail
 6. **Mark stable** — stores successful run ID for rollback reference
+7. **GitHub Pages** — `pages.yml` auto-triggers via `workflow_run` after a successful deploy, publishing `docs/index.html` to https://arjunjm.github.io/epocha/
 
 **Required GitHub secrets:** `AZURE_WEBAPP_PUBLISH_PROFILE`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_STORAGE_KEY`
 
