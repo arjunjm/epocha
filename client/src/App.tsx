@@ -329,7 +329,7 @@ export default function App() {
     window.history.replaceState(null, '', '/');
   };
 
-  // Load the second timeline for compare mode — always uses public browse path
+  // Load the second timeline for compare mode
   const handleCompareBrowse = async (topic: string, startYear: string, endYear: string) => {
     setCompareStatus({ loading: true, message: `Looking up "${topic}"…` });
     setCompareTimeline(null);
@@ -345,12 +345,14 @@ export default function App() {
         setCompareMode(true);
         return;
       }
-      // Not cached — stream it publicly
+      // Not cached — generate it. Authenticated users use their session so the
+      // result is tracked and the timeline is properly attributed in analytics.
+      // Unauthenticated users fall back to publicBrowse so no auth is required.
       setCompareStatus({ loading: true, message: `Generating "${topic}"…` });
       const streamRes = await fetch('/api/timeline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, startYear, endYear, publicBrowse: true }),
+        body: JSON.stringify({ topic, startYear, endYear, ...(!user && { publicBrowse: true }) }),
       });
       if (!streamRes.ok || !streamRes.body) {
         throw new Error(`Could not load "${topic}"`);
@@ -767,6 +769,8 @@ export default function App() {
                     compact
                     onSubmit={(topic, start, end) => void handleCompareBrowse(topic, start, end)}
                     submitLabel="Compare →"
+                    defaultStartYear={timelineYears.start}
+                    defaultEndYear={timelineYears.end}
                   />
                 </div>
               </div>
