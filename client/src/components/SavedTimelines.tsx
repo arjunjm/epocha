@@ -12,7 +12,7 @@ function loadOrder(col: string): string[] {
   catch { return []; }
 }
 function saveOrder(col: string, ids: string[]) {
-  try { localStorage.setItem(ORDER_PREFIX + col, JSON.stringify(ids)); } catch {}
+  try { localStorage.setItem(ORDER_PREFIX + col, JSON.stringify(ids)); } catch { /* ignore */ }
 }
 
 function applyOrder(items: SavedTimeline[], order: string[]): SavedTimeline[] {
