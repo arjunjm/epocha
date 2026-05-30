@@ -25,7 +25,7 @@ import { QUEUE_NAME } from './generateSingle.js';
 import { fetchTrendingTopics, resetNewsClients, type NewsProvider } from './newsProviders.js';
 
 const POPULAR_KEY = 'epocha:popular-topics';
-const MAX_JOBS = 80;
+const MAX_JOBS = 120;
 
 const ADMIN_LOG_KEY = 'epocha:admin:job-log';
 const ADMIN_RUNNING_KEY = 'epocha:admin:running';
@@ -119,6 +119,10 @@ async function buildFullQueue(redis: Redis, log: (m: string) => void): Promise<T
     }
   };
 
+  // Sidebar topics first — guarantees all 39 pre-built topics always get a slot
+  // regardless of how many popular/trending/AI topics are ahead of them.
+  for (const j of ALL_TOPICS) add(j);
+
   for (const j of await fetchTrendingCurrentEvents(log)) add(j);
 
   try {
@@ -141,7 +145,6 @@ async function buildFullQueue(redis: Redis, log: (m: string) => void): Promise<T
   }
 
   for (const j of await fetchAISuggestedTopics(log)) add(j);
-  for (const j of ALL_TOPICS) add(j);
 
   log(`[queue] Total unique jobs: ${jobs.length}`);
   return jobs;
