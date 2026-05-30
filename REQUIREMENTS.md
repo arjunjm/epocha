@@ -29,6 +29,8 @@
 - [x] Background job (Azure Function) to pre-generate and cache timelines for popular topics — timer trigger at 2AM UTC daily + HTTP trigger for manual seeding
 - [x] Store pre-generated timelines in Redis so they load instantly for all users
 - [x] Azure Function also pre-generates and caches quiz questions alongside each timeline
+- [x] Sidebar topics guaranteed queue slots — ALL_TOPICS added first in buildFullQueue so 39 sidebar topics are never dropped when popular search volume exceeds MAX_JOBS
+- [x] Robust nightly refresh — skip threshold widened from 24 h to 48 h so topics are refreshed with a 2-day safety buffer before their 7-day TTL expires
 
 ## Gamification
 - [x] Profile Levels (1–20) and XP system — XP awarded for: viewing timelines (+10), saving (+5), daily login (+5), completing quiz (+25–50)

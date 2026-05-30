@@ -135,18 +135,23 @@ const SEARCH_KEY = 'epocha:popular-topics';
 const TRENDING_KEY = 'epocha:trending-topics';
 const TRENDING_MAX = 50;
 
-// Sidebar default topics — excluded from trending display
+// Sidebar default topics — excluded from trending display.
+// Keep in sync with ALL_TOPICS in functions/src/topics.ts.
 const DEFAULT_TOPICS = new Set([
   'Ancient Greece','The Roman Empire','Ancient Egypt','Mesopotamia & Early Civilization',
   'The Persian Empire','History of Western Philosophy','Eastern Philosophy','The Enlightenment',
   'Existentialism','History of Political Philosophy','History of Computing','The Space Race',
   'History of Physics from Newton to Quantum Mechanics','History of Evolutionary Biology',
   'History of Artificial Intelligence','History of Medicine','The French Revolution',
-  'The American Revolution','The Russian Revolution','The Cold War','World War I','World War II',
-  'The Civil Rights Movement','The Renaissance','The Age of Exploration','The Industrial Revolution',
-  'The Ottoman Empire','The Mughal Empire','The Ming Dynasty','The Byzantine Empire',
-  'Ancient India','Ancient China','The Viking Age','The Crusades','The Silk Road',
-  'The British Empire','The Mongol Empire','The Islamic Golden Age',
+  'The American Revolution','The Russian Revolution','The Cold War',
+  'The American Civil Rights Movement','Decolonization of Africa and Asia',
+  'The Renaissance','History of Classical Music','History of Modern Art',
+  'History of Cinema','History of Western Literature',
+  'The Rise of Early Christianity','The Rise and Spread of Islam',
+  'The Protestant Reformation','The History of Buddhism',
+  'The Industrial Revolution','The Great Depression','History of Globalization',
+  'The Silk Road Trade Routes','World War I','World War II',
+  'The Crusades','The Napoleonic Wars','The Vietnam War',
 ]);
 
 export async function trackSearch(topic: string, startYear: string, endYear: string): Promise<void> {

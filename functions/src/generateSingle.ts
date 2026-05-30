@@ -67,7 +67,7 @@ async function processOne(
 
     if (!job.forceRegenerate) {
       const ttl = await redis.ttl(key);
-      if (ttl > 86400) {
+      if (ttl > 2 * 86400) {
         await makePipeline(redis, `Skipped (fresh, ${Math.round(ttl / 3600)}h left): ${job.topic}`);
         await queueClient.deleteMessage(queueMsg.messageId, queueMsg.popReceipt);
         return;
